@@ -5,9 +5,9 @@ import 'package:sreerajp_youtube_shortcut/src/shortcut_services.dart';
 import 'package:sreerajp_youtube_shortcut/src/shortcut_store.dart';
 
 void main() {
-  ShortcutStore buildStore() {
+  ShortcutStore buildStore([ShortcutRepository? repository]) {
     return ShortcutStore(
-      repository: MemoryShortcutRepository(),
+      repository: repository ?? MemoryShortcutRepository(),
       formatter: const YoutubeUrlFormatter(),
       launcher: _FakeYoutubeLauncher(),
     );
@@ -82,7 +82,7 @@ void main() {
     ]);
   });
 
-  test('moves an edited shortcut to the top based on updated time', () async {
+  test('keeps shortcut position when editing', () async {
     final ShortcutStore store = buildStore();
 
     await store.addShortcut(
@@ -98,7 +98,10 @@ void main() {
       urlInput: 'https://youtu.be/second123',
     );
 
-    expect(store.entries.first.name, 'Second');
+    expect(store.entries.map((ShortcutEntry entry) => entry.name), <String>[
+      'Second',
+      'First',
+    ]);
 
     await Future<void>.delayed(const Duration(milliseconds: 1));
 
@@ -108,8 +111,71 @@ void main() {
       urlInput: 'https://www.youtube.com/watch?v=first123',
     );
 
-    expect(store.entries.first.id, firstId);
-    expect(store.entries.first.name, 'First Updated');
+    expect(store.entries.map((ShortcutEntry entry) => entry.name), <String>[
+      'Second',
+      'First Updated',
+    ]);
+  });
+
+  test('uses system theme by default and updates selection', () async {
+    final ShortcutStore store = buildStore();
+
+    expect(store.themePreference, AppThemePreference.system);
+
+    await store.setThemePreference(AppThemePreference.dark);
+
+    expect(store.themePreference, AppThemePreference.dark);
+  });
+
+  test('persists selected theme preference across reload', () async {
+    final MemoryShortcutRepository repository = MemoryShortcutRepository();
+    final ShortcutStore store = buildStore(repository);
+
+    await store.setThemePreference(AppThemePreference.light);
+
+    final ShortcutStore reloadedStore = buildStore(repository);
+    await reloadedStore.load();
+
+    expect(reloadedStore.themePreference, AppThemePreference.light);
+  });
+  test('reorders shortcuts and persists manual order', () async {
+    final MemoryShortcutRepository repository = MemoryShortcutRepository();
+    final ShortcutStore store = buildStore(repository);
+
+    await store.addShortcut(
+      nameInput: 'First',
+      urlInput: 'https://youtu.be/first123',
+    );
+    await store.addShortcut(
+      nameInput: 'Second',
+      urlInput: 'https://youtu.be/second123',
+    );
+    await store.addShortcut(
+      nameInput: 'Third',
+      urlInput: 'https://youtu.be/third123',
+    );
+
+    expect(store.entries.map((ShortcutEntry entry) => entry.name), <String>[
+      'Third',
+      'Second',
+      'First',
+    ]);
+
+    await store.reorderShortcuts(0, 3);
+
+    expect(store.entries.map((ShortcutEntry entry) => entry.name), <String>[
+      'Second',
+      'First',
+      'Third',
+    ]);
+
+    final ShortcutStore reloadedStore = buildStore(repository);
+    await reloadedStore.load();
+
+    expect(
+      reloadedStore.entries.map((ShortcutEntry entry) => entry.name),
+      <String>['Second', 'First', 'Third'],
+    );
   });
 }
 

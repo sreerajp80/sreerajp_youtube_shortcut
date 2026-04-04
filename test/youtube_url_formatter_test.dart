@@ -27,6 +27,19 @@ void main() {
     expect(entry.canonicalUrl, 'https://www.youtube.com/@JanamTVMedia/live');
     expect(entry.targetType, ShortcutTargetType.channel);
   });
+  test('builds full-url preview for bare handle input', () {
+    final String? preview = formatter.buildDisplayUrlPreview('JanamTVMedia');
+
+    expect(preview, 'https://www.youtube.com/@JanamTVMedia/live');
+  });
+
+  test('does not build preview when input already has a URL scheme', () {
+    final String? preview = formatter.buildDisplayUrlPreview(
+      'https://www.youtube.com/@JanamTVMedia/live',
+    );
+
+    expect(preview, isNull);
+  });
 
   test('normalizes youtu.be links to canonical watch urls', () {
     final ShortcutEntry entry = formatter.createEntry(

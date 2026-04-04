@@ -19,10 +19,20 @@ class ShortcutStore extends ChangeNotifier {
   List<ShortcutEntry> _entries = const <ShortcutEntry>[];
   bool _isLoading = false;
   String? _launchingShortcutId;
+  AppThemePreference _themePreference = AppThemePreference.system;
 
   List<ShortcutEntry> get entries => List<ShortcutEntry>.unmodifiable(_entries);
   bool get isLoading => _isLoading;
   String? get launchingShortcutId => _launchingShortcutId;
+  AppThemePreference get themePreference => _themePreference;
+
+  String? fullUrlPreviewForInput(String urlInput) {
+    try {
+      return _formatter.buildDisplayUrlPreview(urlInput);
+    } on ShortcutValidationException {
+      return null;
+    }
+  }
 
   Future<void> load() async {
     _isLoading = true;
@@ -31,11 +41,24 @@ class ShortcutStore extends ChangeNotifier {
     try {
       final List<ShortcutEntry> loadedEntries = await _repository
           .loadShortcuts();
-      _entries = _sortEntries(loadedEntries);
+      final AppThemePreference loadedThemePreference = await _repository
+          .loadThemePreference();
+      _entries = loadedEntries;
+      _themePreference = loadedThemePreference;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> setThemePreference(AppThemePreference preference) async {
+    if (_themePreference == preference) {
+      return;
+    }
+
+    await _repository.saveThemePreference(preference);
+    _themePreference = preference;
+    notifyListeners();
   }
 
   Future<void> addShortcut({
@@ -49,10 +72,10 @@ class ShortcutStore extends ChangeNotifier {
 
     _throwIfDuplicateName(normalizedName: newEntry.name.trim().toLowerCase());
 
-    final List<ShortcutEntry> updatedEntries = _sortEntries(<ShortcutEntry>[
+    final List<ShortcutEntry> updatedEntries = <ShortcutEntry>[
       newEntry,
       ..._entries,
-    ]);
+    ];
 
     await _repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
@@ -82,11 +105,9 @@ class ShortcutStore extends ChangeNotifier {
       excludedId: updatedEntry.id,
     );
 
-    final List<ShortcutEntry> updatedEntries = _sortEntries(
-      _entries
-          .map((ShortcutEntry entry) => entry.id == id ? updatedEntry : entry)
-          .toList(growable: false),
-    );
+    final List<ShortcutEntry> updatedEntries = _entries
+        .map((ShortcutEntry entry) => entry.id == id ? updatedEntry : entry)
+        .toList(growable: false);
 
     await _repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
@@ -106,6 +127,33 @@ class ShortcutStore extends ChangeNotifier {
   Future<void> clearAll() async {
     await _repository.saveShortcuts(const <ShortcutEntry>[]);
     _entries = const <ShortcutEntry>[];
+    notifyListeners();
+  }
+
+  Future<void> reorderShortcuts(int oldIndex, int newIndex) async {
+    final List<ShortcutEntry> updatedEntries = List<ShortcutEntry>.from(
+      _entries,
+    );
+    if (oldIndex < 0 ||
+        oldIndex >= updatedEntries.length ||
+        newIndex < 0 ||
+        newIndex > updatedEntries.length) {
+      return;
+    }
+
+    int targetIndex = newIndex;
+    if (oldIndex < newIndex) {
+      targetIndex -= 1;
+    }
+    if (oldIndex == targetIndex) {
+      return;
+    }
+
+    final ShortcutEntry movedEntry = updatedEntries.removeAt(oldIndex);
+    updatedEntries.insert(targetIndex, movedEntry);
+
+    await _repository.saveShortcuts(updatedEntries);
+    _entries = updatedEntries;
     notifyListeners();
   }
 
@@ -137,14 +185,5 @@ class ShortcutStore extends ChangeNotifier {
         'Choose a different shortcut name. Names must be unique.',
       );
     }
-  }
-
-  List<ShortcutEntry> _sortEntries(List<ShortcutEntry> entries) {
-    final List<ShortcutEntry> sortedEntries = List<ShortcutEntry>.from(entries);
-    sortedEntries.sort(
-      (ShortcutEntry left, ShortcutEntry right) =>
-          right.updatedAt.compareTo(left.updatedAt),
-    );
-    return sortedEntries;
   }
 }

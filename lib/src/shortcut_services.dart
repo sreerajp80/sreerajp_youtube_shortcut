@@ -11,6 +11,10 @@ abstract class ShortcutRepository {
   Future<List<ShortcutEntry>> loadShortcuts();
 
   Future<void> saveShortcuts(List<ShortcutEntry> entries);
+
+  Future<AppThemePreference> loadThemePreference();
+
+  Future<void> saveThemePreference(AppThemePreference preference);
 }
 
 class SharedPreferencesShortcutRepository implements ShortcutRepository {
@@ -18,12 +22,13 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
 
   final SharedPreferences _preferences;
 
-  static const String _storageKey = 'shortcut_entries_v1';
+  static const String _shortcutStorageKey = 'shortcut_entries_v1';
+  static const String _themePreferenceStorageKey = 'app_theme_preference_v1';
 
   @override
   Future<List<ShortcutEntry>> loadShortcuts() async {
     try {
-      final String? raw = _preferences.getString(_storageKey);
+      final String? raw = _preferences.getString(_shortcutStorageKey);
       if (raw == null || raw.trim().isEmpty) {
         return const <ShortcutEntry>[];
       }
@@ -50,7 +55,10 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
             .map((ShortcutEntry entry) => entry.toJson())
             .toList(growable: false),
       );
-      final bool saved = await _preferences.setString(_storageKey, encoded);
+      final bool saved = await _preferences.setString(
+        _shortcutStorageKey,
+        encoded,
+      );
       if (!saved) {
         throw const ShortcutStorageException(
           'Local shortcut save was rejected.',
@@ -65,6 +73,25 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
       );
     }
   }
+
+  @override
+  Future<AppThemePreference> loadThemePreference() async {
+    final String? raw = _preferences.getString(_themePreferenceStorageKey);
+    return AppThemePreference.fromStorageValue(raw);
+  }
+
+  @override
+  Future<void> saveThemePreference(AppThemePreference preference) async {
+    final bool saved = await _preferences.setString(
+      _themePreferenceStorageKey,
+      preference.storageValue,
+    );
+    if (!saved) {
+      throw const ShortcutStorageException(
+        'Theme preference could not be saved locally.',
+      );
+    }
+  }
 }
 
 class MemoryShortcutRepository implements ShortcutRepository {
@@ -74,6 +101,7 @@ class MemoryShortcutRepository implements ShortcutRepository {
       );
 
   List<ShortcutEntry> _entries;
+  AppThemePreference _themePreference = AppThemePreference.system;
 
   @override
   Future<List<ShortcutEntry>> loadShortcuts() async {
@@ -83,6 +111,16 @@ class MemoryShortcutRepository implements ShortcutRepository {
   @override
   Future<void> saveShortcuts(List<ShortcutEntry> entries) async {
     _entries = List<ShortcutEntry>.from(entries);
+  }
+
+  @override
+  Future<AppThemePreference> loadThemePreference() async {
+    return _themePreference;
+  }
+
+  @override
+  Future<void> saveThemePreference(AppThemePreference preference) async {
+    _themePreference = preference;
   }
 }
 
@@ -141,6 +179,18 @@ class YoutubeUrlFormatter {
     );
   }
 
+  String? buildDisplayUrlPreview(String input) {
+    final String normalizedInput = input.trim();
+    if (normalizedInput.isEmpty || _hasExplicitScheme(normalizedInput)) {
+      return null;
+    }
+
+    final String normalizedUrlInput = _expandHandleInput(normalizedInput);
+    final Uri inputUri = _normalizeInputUri(normalizedUrlInput);
+    _parseTarget(inputUri);
+    return inputUri.toString();
+  }
+
   ShortcutEntry _buildEntry({
     required String nameInput,
     required String urlInput,
@@ -180,6 +230,17 @@ class YoutubeUrlFormatter {
 
   String _createEntryId(DateTime now) {
     return '${now.microsecondsSinceEpoch}-${_idRandom.nextInt(1 << 32)}';
+  }
+
+  bool _hasExplicitScheme(String input) {
+    final int schemeDividerIndex = input.indexOf('://');
+    if (schemeDividerIndex <= 0) {
+      return false;
+    }
+
+    final String scheme = input.substring(0, schemeDividerIndex);
+    final RegExp schemePattern = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*$');
+    return schemePattern.hasMatch(scheme);
   }
 
   String _expandHandleInput(String input) {

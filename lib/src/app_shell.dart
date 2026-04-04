@@ -15,64 +15,104 @@ class ShortcutApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFFD73A23),
-      brightness: Brightness.light,
-    );
+    final ThemeData lightTheme = _buildTheme(Brightness.light);
+    final ThemeData darkTheme = _buildTheme(Brightness.dark);
 
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ShortcutStore>.value(value: store),
         Provider<AboutInfo>.value(value: aboutInfo),
       ],
-      child: MaterialApp(
-        title: AboutConstants.appTitle,
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: colorScheme,
-          scaffoldBackgroundColor: const Color(0xFFFFF8F3),
-          textTheme: ThemeData.light().textTheme.apply(
-            bodyColor: const Color(0xFF23130E),
-            displayColor: const Color(0xFF23130E),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-          ),
-          cardTheme: CardThemeData(
-            color: Colors.white,
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: const BorderSide(color: Color(0xFFF1DED3)),
-            ),
-          ),
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: const BorderSide(color: Color(0xFFE4D4CB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: const BorderSide(color: Color(0xFFE4D4CB)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 16,
-            ),
-          ),
-        ),
-        home: const HomeScreen(),
+      child: Consumer<ShortcutStore>(
+        builder: (BuildContext context, ShortcutStore store, Widget? child) {
+          return MaterialApp(
+            title: AboutConstants.appTitle,
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: store.themePreference.themeMode,
+            home: const HomeScreen(),
+          );
+        },
       ),
     );
+  }
+
+  ThemeData _buildTheme(Brightness brightness) {
+    final bool isDark = brightness == Brightness.dark;
+    final ColorScheme colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFFD73A23),
+      brightness: brightness,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF16110F)
+          : const Color(0xFFFFF8F3),
+      textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme
+          .apply(
+            bodyColor: isDark
+                ? const Color(0xFFF6ECE6)
+                : const Color(0xFF23130E),
+            displayColor: isDark
+                ? const Color(0xFFF6ECE6)
+                : const Color(0xFF23130E),
+          ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: CardThemeData(
+        color: isDark ? const Color(0xFF251D19) : Colors.white,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: isDark ? const Color(0xFF3B2E28) : const Color(0xFFF1DED3),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark ? const Color(0xFF2A211D) : Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF4B3A33) : const Color(0xFFE4D4CB),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF4B3A33) : const Color(0xFFE4D4CB),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 16,
+        ),
+      ),
+    );
+  }
+}
+
+extension on AppThemePreference {
+  ThemeMode get themeMode {
+    switch (this) {
+      case AppThemePreference.system:
+        return ThemeMode.system;
+      case AppThemePreference.light:
+        return ThemeMode.light;
+      case AppThemePreference.dark:
+        return ThemeMode.dark;
+    }
   }
 }
 

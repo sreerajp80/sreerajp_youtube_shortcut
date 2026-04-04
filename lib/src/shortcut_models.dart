@@ -14,6 +14,27 @@ class AboutInfo {
   final String aiUsed;
 }
 
+enum AppThemePreference {
+  system('System'),
+  light('Light'),
+  dark('Dark');
+
+  const AppThemePreference(this.label);
+
+  final String label;
+
+  String get storageValue => name;
+
+  static AppThemePreference fromStorageValue(String? value) {
+    for (final AppThemePreference preference in AppThemePreference.values) {
+      if (preference.storageValue == value) {
+        return preference;
+      }
+    }
+    return AppThemePreference.system;
+  }
+}
+
 enum ShortcutTargetType {
   video('Video'),
   shortVideo('Shorts'),

@@ -115,6 +115,26 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
               _saveShortcut();
             },
           ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _urlController,
+            builder:
+                (BuildContext context, TextEditingValue value, Widget? child) {
+                  final String? previewUrl = context
+                      .read<ShortcutStore>()
+                      .fullUrlPreviewForInput(value.text);
+                  if (previewUrl == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Text(
+                    'Full URL: $previewUrl',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                },
+          ),
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
@@ -145,7 +165,7 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
           Text(
             'The app stores the shortcut locally and does not request internet access.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF6D574F),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

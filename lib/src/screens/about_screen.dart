@@ -106,7 +106,7 @@ class _InfoRow extends StatelessWidget {
               child: Text(
                 label,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF6A554D),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
