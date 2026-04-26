@@ -106,7 +106,9 @@ Do not propose changes that introduce analyzer warnings or failing tests.
 | `lib/src/app_shell.dart` | App root, `MultiProvider`, routing |
 | `lib/src/shortcut_models.dart` | Immutable domain models |
 | `lib/src/shortcut_store.dart` | Root `ChangeNotifier` |
-| `lib/src/shortcut_services.dart` | URL formatter, YouTube launcher service |
+| `lib/src/shortcut_repository.dart` | `ShortcutRepository` interface and SharedPreferences/in-memory implementations |
+| `lib/src/youtube_url_formatter.dart` | YouTube URL parser and `ShortcutEntry` factory |
+| `lib/src/youtube_launcher_service.dart` | Explicit Android intent to open YouTube |
 | `android/app/build.gradle.kts` | Flavors, signing config, ProGuard, R8 |
 | `android/app/proguard-rules.pro` | R8 keep rules for Flutter engine |
 | `android/app/src/main/AndroidManifest.xml` | Android manifest |

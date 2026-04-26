@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sreerajp_youtube_shortcut/core/errors/app_exception.dart';
 import 'package:sreerajp_youtube_shortcut/src/shortcut_models.dart';
-import 'package:sreerajp_youtube_shortcut/src/shortcut_services.dart';
+import 'package:sreerajp_youtube_shortcut/src/youtube_url_formatter.dart';
 
 void main() {
   const YoutubeUrlFormatter formatter = YoutubeUrlFormatter();

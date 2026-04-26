@@ -120,7 +120,9 @@ All three must pass with zero errors and zero warnings.
 | `lib/src/app_shell.dart` | App root and provider wiring |
 | `lib/src/shortcut_models.dart` | Core immutable models |
 | `lib/src/shortcut_store.dart` | Root `ChangeNotifier` state holder |
-| `lib/src/shortcut_services.dart` | URL formatter and launcher service |
+| `lib/src/shortcut_repository.dart` | `ShortcutRepository` interface and SharedPreferences/in-memory implementations |
+| `lib/src/youtube_url_formatter.dart` | YouTube URL parser and `ShortcutEntry` factory |
+| `lib/src/youtube_launcher_service.dart` | Explicit Android intent to open YouTube |
 | `android/app/build.gradle.kts` | Android build config, flavors, signing |
 | `android/app/proguard-rules.pro` | R8 keep rules |
 | `android/app/src/main/AndroidManifest.xml` | Android manifest |

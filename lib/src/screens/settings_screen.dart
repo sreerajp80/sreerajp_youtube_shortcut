@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/errors/app_exception.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
 import 'about_screen.dart';
+import 'backup_restore_screen.dart';
 import 'permissions_screen.dart';
+import 'shortcut_behavior_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -12,8 +15,33 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final ShortcutStore store = context.watch<ShortcutStore>();
     final AppThemePreference selectedPreference = store.themePreference;
+    const Color darkAccent = Color(0xFF2DD4BF);
+    final ButtonStyle? segmentStyle = isDark
+        ? ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+              Set<WidgetState> states,
+            ) {
+              if (states.contains(WidgetState.selected)) {
+                return darkAccent.withValues(alpha: 0.20);
+              }
+              return Colors.transparent;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+              Set<WidgetState> states,
+            ) {
+              if (states.contains(WidgetState.selected)) {
+                return darkAccent;
+              }
+              return theme.colorScheme.onSurface;
+            }),
+            side: WidgetStateProperty.all<BorderSide>(
+              BorderSide(color: darkAccent.withValues(alpha: 0.45)),
+            ),
+          )
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -44,6 +72,7 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   SegmentedButton<AppThemePreference>(
+                    style: segmentStyle,
                     segments: AppThemePreference.values
                         .map(
                           (AppThemePreference preference) =>
@@ -87,6 +116,21 @@ class SettingsScreen extends StatelessWidget {
             subtitle:
                 'Explicit and implicit permission-related manifest declarations.',
             onTap: () => _openPermissions(context),
+          ),
+          const SizedBox(height: 12),
+          _SettingsTile(
+            icon: Icons.alternate_email_rounded,
+            title: 'Channel handles',
+            subtitle: "How '@' shortcuts route to live streams.",
+            onTap: () => _openShortcutBehavior(context),
+          ),
+          const SizedBox(height: 12),
+          _SettingsTile(
+            icon: Icons.import_export_rounded,
+            title: 'Backup & Restore',
+            subtitle:
+                'Export shortcuts to a JSON file you control, or import a previous backup.',
+            onTap: () => _openBackupRestore(context),
           ),
         ],
       ),
@@ -135,6 +179,22 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openShortcutBehavior(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const ShortcutBehaviorScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openBackupRestore(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const BackupRestoreScreen(),
+      ),
+    );
+  }
 }
 
 class _SettingsTile extends StatelessWidget {
@@ -153,6 +213,16 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color iconBackground = isDark
+        ? const Color(0xFF2DD4BF).withValues(alpha: 0.18)
+        : theme.colorScheme.secondaryContainer;
+    final Color iconColor = isDark
+        ? const Color(0xFF2DD4BF)
+        : theme.colorScheme.onSecondaryContainer;
+    final Color iconBorder = isDark
+        ? const Color(0xFF2DD4BF).withValues(alpha: 0.45)
+        : Colors.transparent;
 
     return Card(
       child: ListTile(
@@ -160,10 +230,11 @@ class _SettingsTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: theme.colorScheme.secondaryContainer,
+            color: iconBackground,
             borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: iconBorder),
           ),
-          child: Icon(icon, color: theme.colorScheme.onSecondaryContainer),
+          child: Icon(icon, color: iconColor),
         ),
         title: Text(
           title,

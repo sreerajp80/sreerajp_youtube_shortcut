@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sreerajp_youtube_shortcut/core/errors/app_exception.dart';
 import 'package:sreerajp_youtube_shortcut/src/shortcut_models.dart';
-import 'package:sreerajp_youtube_shortcut/src/shortcut_services.dart';
+import 'package:sreerajp_youtube_shortcut/src/shortcut_repository.dart';
 import 'package:sreerajp_youtube_shortcut/src/shortcut_store.dart';
+import 'package:sreerajp_youtube_shortcut/src/youtube_launcher_service.dart';
+import 'package:sreerajp_youtube_shortcut/src/youtube_url_formatter.dart';
 
 void main() {
   ShortcutStore buildStore([ShortcutRepository? repository]) {
@@ -177,6 +180,196 @@ void main() {
       <String>['Second', 'First', 'Third'],
     );
   });
+
+  group('entriesSorted', () {
+    Future<ShortcutStore> loadedStore(List<ShortcutEntry> seed) async {
+      final ShortcutStore store = buildStore(MemoryShortcutRepository(seed));
+      await store.load();
+      return store;
+    }
+
+    test(
+      'manual sort preserves stored order regardless of launch state',
+      () async {
+        final List<ShortcutEntry> seed = <ShortcutEntry>[
+          _seedEntry(id: 'a', name: 'Alpha'),
+          _seedEntry(
+            id: 'b',
+            name: 'Bravo',
+            lastLaunched: '2026-04-20T00:00:00Z',
+            launchCount: 9,
+          ),
+          _seedEntry(
+            id: 'c',
+            name: 'Charlie',
+            lastLaunched: '2026-04-25T00:00:00Z',
+            launchCount: 3,
+          ),
+        ];
+        final ShortcutStore store = await loadedStore(seed);
+
+        expect(store.sortPreference, ShortcutSortPreference.manual);
+        expect(
+          store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+          <String>['a', 'b', 'c'],
+        );
+      },
+    );
+
+    test(
+      'recent sort orders by lastLaunchedAt desc; never-launched fall to bottom in manual order',
+      () async {
+        final List<ShortcutEntry> seed = <ShortcutEntry>[
+          _seedEntry(id: 'never-1', name: 'Never One'),
+          _seedEntry(
+            id: 'old',
+            name: 'Old launch',
+            lastLaunched: '2026-04-01T00:00:00Z',
+            launchCount: 1,
+          ),
+          _seedEntry(id: 'never-2', name: 'Never Two'),
+          _seedEntry(
+            id: 'newest',
+            name: 'Newest launch',
+            lastLaunched: '2026-04-25T00:00:00Z',
+            launchCount: 1,
+          ),
+        ];
+        final ShortcutStore store = await loadedStore(seed);
+        await store.setSortPreference(ShortcutSortPreference.recent);
+
+        expect(
+          store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+          <String>['newest', 'old', 'never-1', 'never-2'],
+        );
+      },
+    );
+
+    test(
+      'alphabetical sort orders by name case-insensitively; ties break by manual order',
+      () async {
+        final List<ShortcutEntry> seed = <ShortcutEntry>[
+          _seedEntry(id: 'c', name: 'charlie'),
+          _seedEntry(id: 'a', name: 'Alpha'),
+          _seedEntry(id: 'b1', name: 'bravo'),
+          _seedEntry(id: 'b2', name: 'Bravo'),
+        ];
+        final ShortcutStore store = await loadedStore(seed);
+        await store.setSortPreference(ShortcutSortPreference.alphabetical);
+
+        expect(
+          store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+          <String>['a', 'b1', 'b2', 'c'],
+        );
+      },
+    );
+
+    test(
+      'newest sort orders by createdAt desc; ties break by manual order',
+      () async {
+        final List<ShortcutEntry> seed = <ShortcutEntry>[
+          _seedEntry(
+            id: 'older',
+            name: 'Older',
+            createdAt: '2026-02-01T00:00:00Z',
+          ),
+          _seedEntry(
+            id: 'newest',
+            name: 'Newest',
+            createdAt: '2026-04-20T00:00:00Z',
+          ),
+          _seedEntry(
+            id: 'middle-a',
+            name: 'Middle A',
+            createdAt: '2026-03-10T00:00:00Z',
+          ),
+          _seedEntry(
+            id: 'middle-b',
+            name: 'Middle B',
+            createdAt: '2026-03-10T00:00:00Z',
+          ),
+        ];
+        final ShortcutStore store = await loadedStore(seed);
+        await store.setSortPreference(ShortcutSortPreference.newest);
+
+        expect(
+          store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+          <String>['newest', 'middle-a', 'middle-b', 'older'],
+        );
+      },
+    );
+
+    test(
+      'mostUsed sort orders by launchCount desc; ties break by recency then manual order',
+      () async {
+        final List<ShortcutEntry> seed = <ShortcutEntry>[
+          _seedEntry(
+            id: 'tie-older',
+            name: 'Tie older',
+            lastLaunched: '2026-04-10T00:00:00Z',
+            launchCount: 5,
+          ),
+          _seedEntry(
+            id: 'top',
+            name: 'Top',
+            lastLaunched: '2026-04-01T00:00:00Z',
+            launchCount: 12,
+          ),
+          _seedEntry(
+            id: 'tie-newer',
+            name: 'Tie newer',
+            lastLaunched: '2026-04-20T00:00:00Z',
+            launchCount: 5,
+          ),
+          _seedEntry(
+            id: 'tie-manual-first',
+            name: 'Tie manual first',
+            launchCount: 5,
+          ),
+          _seedEntry(
+            id: 'tie-manual-second',
+            name: 'Tie manual second',
+            launchCount: 5,
+          ),
+          _seedEntry(id: 'never', name: 'Never'),
+        ];
+        final ShortcutStore store = await loadedStore(seed);
+        await store.setSortPreference(ShortcutSortPreference.mostUsed);
+
+        expect(
+          store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+          <String>[
+            'top',
+            'tie-newer',
+            'tie-older',
+            'tie-manual-first',
+            'tie-manual-second',
+            'never',
+          ],
+        );
+      },
+    );
+  });
+}
+
+ShortcutEntry _seedEntry({
+  required String id,
+  required String name,
+  String createdAt = '2026-01-01T00:00:00Z',
+  String? lastLaunched,
+  int launchCount = 0,
+}) {
+  return ShortcutEntry(
+    id: id,
+    name: name,
+    sourceUrl: 'https://youtu.be/$id',
+    canonicalUrl: 'https://www.youtube.com/watch?v=$id',
+    targetType: ShortcutTargetType.video,
+    createdAtIso: createdAt,
+    updatedAtIso: createdAt,
+    lastLaunchedAtIso: lastLaunched,
+    launchCount: launchCount,
+  );
 }
 
 class _FakeYoutubeLauncher implements YoutubeLauncher {

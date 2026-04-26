@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:provider/provider.dart';
 
+import '../../core/errors/app_exception.dart';
+import '../share_intent_service.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
 
 class AddShortcutScreen extends StatefulWidget {
-  const AddShortcutScreen({super.key, this.initialEntry});
+  const AddShortcutScreen({super.key, this.initialEntry, this.initialUrlInput});
 
   final ShortcutEntry? initialEntry;
+  final String? initialUrlInput;
 
   @override
   State<AddShortcutScreen> createState() => _AddShortcutScreenState();
@@ -17,6 +21,8 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   bool _isSaving = false;
+  String? _clipboardSuggestion;
+  bool _clipboardSuggestionResolved = false;
 
   bool get _isEditing => widget.initialEntry != null;
 
@@ -24,19 +30,99 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
   void initState() {
     super.initState();
     final ShortcutEntry? initialEntry = widget.initialEntry;
-    if (initialEntry == null) {
+    if (initialEntry != null) {
+      _nameController.text = initialEntry.name;
+      _urlController.text = initialEntry.sourceUrl;
       return;
     }
 
-    _nameController.text = initialEntry.name;
-    _urlController.text = initialEntry.sourceUrl;
+    final String? initialUrlInput = widget.initialUrlInput;
+    if (initialUrlInput != null && initialUrlInput.isNotEmpty) {
+      _urlController.text = initialUrlInput;
+      return;
+    }
+
+    _urlController.addListener(_handleUrlChangedForSuggestion);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkClipboardForYoutubeUrl();
+    });
   }
 
   @override
   void dispose() {
+    _urlController.removeListener(_handleUrlChangedForSuggestion);
     _nameController.dispose();
     _urlController.dispose();
     super.dispose();
+  }
+
+  void _handleUrlChangedForSuggestion() {
+    if (_clipboardSuggestion == null) {
+      return;
+    }
+    if (_urlController.text.isNotEmpty) {
+      setState(() {
+        _clipboardSuggestion = null;
+        _clipboardSuggestionResolved = true;
+      });
+    }
+  }
+
+  Future<void> _checkClipboardForYoutubeUrl() async {
+    if (!mounted ||
+        _clipboardSuggestionResolved ||
+        _urlController.text.isNotEmpty) {
+      return;
+    }
+
+    ClipboardData? data;
+    try {
+      data = await Clipboard.getData(Clipboard.kTextPlain);
+    } catch (_) {
+      return;
+    }
+
+    final String? raw = data?.text;
+    if (raw == null || !mounted) {
+      return;
+    }
+
+    final String? candidate = extractFirstUrlOrRaw(raw);
+    if (candidate == null ||
+        candidate.isEmpty ||
+        !looksLikeYoutubeUrl(candidate)) {
+      return;
+    }
+
+    if (_clipboardSuggestionResolved || _urlController.text.isNotEmpty) {
+      return;
+    }
+
+    setState(() {
+      _clipboardSuggestion = candidate;
+    });
+  }
+
+  void _applyClipboardSuggestion() {
+    final String? suggestion = _clipboardSuggestion;
+    if (suggestion == null) {
+      return;
+    }
+    _urlController.value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
+    );
+    setState(() {
+      _clipboardSuggestion = null;
+      _clipboardSuggestionResolved = true;
+    });
+  }
+
+  void _dismissClipboardSuggestion() {
+    setState(() {
+      _clipboardSuggestion = null;
+      _clipboardSuggestionResolved = true;
+    });
   }
 
   @override
@@ -135,6 +221,14 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
                   );
                 },
           ),
+          if (_clipboardSuggestion != null) ...<Widget>[
+            const SizedBox(height: 12),
+            _ClipboardSuggestionBanner(
+              suggestion: _clipboardSuggestion!,
+              onPaste: _applyClipboardSuggestion,
+              onDismiss: _dismissClipboardSuggestion,
+            ),
+          ],
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
@@ -220,5 +314,85 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ClipboardSuggestionBanner extends StatelessWidget {
+  const _ClipboardSuggestionBanner({
+    required this.suggestion,
+    required this.onPaste,
+    required this.onDismiss,
+  });
+
+  final String suggestion;
+  final VoidCallback onPaste;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colors = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: colors.secondaryContainer,
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                Icons.content_paste_rounded,
+                size: 20,
+                color: colors.onSecondaryContainer,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Paste this link?',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      suggestion,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSecondaryContainer,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[
+              TextButton(onPressed: onDismiss, child: const Text('Dismiss')),
+              const SizedBox(width: 4),
+              FilledButton.tonalIcon(
+                onPressed: onPaste,
+                icon: const Icon(Icons.content_paste_go_rounded, size: 18),
+                label: const Text('Paste'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

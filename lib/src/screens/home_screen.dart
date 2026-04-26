@@ -1,96 +1,531 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:provider/provider.dart';
 
+import '../../core/errors/app_exception.dart';
+import '../backup_service.dart';
+import '../share_intent_service.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
 import 'add_shortcut_screen.dart';
 import 'settings_screen.dart';
+import 'shortcut_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isReorderMode = false;
+  final Set<String> _selectedIds = <String>{};
+  bool _isExportingSelection = false;
+  StreamSubscription<String>? _sharedTextSubscription;
+  bool _isHandlingSharedText = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final Set<ShortcutTargetType> _typeFilters = <ShortcutTargetType>{};
+
+  bool get _isSelectionMode => _selectedIds.isNotEmpty;
+
+  bool get _isFilterActive =>
+      _searchQuery.trim().isNotEmpty || _typeFilters.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _consumeInitialSharedText();
+      _subscribeToIncomingSharedText();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sharedTextSubscription?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<ShortcutEntry> _applyFilters(List<ShortcutEntry> entries) {
+    if (!_isFilterActive) return entries;
+    final String query = _searchQuery.trim().toLowerCase();
+    return entries
+        .where((ShortcutEntry entry) {
+          if (_typeFilters.isNotEmpty &&
+              !_typeFilters.contains(entry.targetType)) {
+            return false;
+          }
+          if (query.isNotEmpty && !entry.name.toLowerCase().contains(query)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
+  }
+
+  void _onSearchChanged(String value) {
+    if (value == _searchQuery) return;
+    setState(() => _searchQuery = value);
+  }
+
+  void _clearSearch() {
+    if (_searchQuery.isEmpty) return;
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _toggleTypeFilter(ShortcutTargetType type) {
+    setState(() {
+      if (!_typeFilters.remove(type)) {
+        _typeFilters.add(type);
+      }
+    });
+  }
+
+  Future<void> _consumeInitialSharedText() async {
+    final SharedTextSource source = context.read<SharedTextSource>();
+    final String? text = await source.consumeInitialSharedText();
+    if (text == null || !mounted) return;
+    await _openAddShortcutFromShare(text);
+  }
+
+  void _subscribeToIncomingSharedText() {
+    final SharedTextSource source = context.read<SharedTextSource>();
+    _sharedTextSubscription = source.incomingSharedText.listen((String text) {
+      if (!mounted) return;
+      _openAddShortcutFromShare(text);
+    });
+  }
+
+  Future<void> _openAddShortcutFromShare(String sharedText) async {
+    if (_isHandlingSharedText) return;
+    final String? prefill = extractFirstUrlOrRaw(sharedText);
+    if (prefill == null || prefill.isEmpty || !mounted) return;
+
+    _isHandlingSharedText = true;
+    try {
+      final String? message = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(
+          builder: (BuildContext context) =>
+              AddShortcutScreen(initialUrlInput: prefill),
+        ),
+      );
+
+      if (message == null || !mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      _isHandlingSharedText = false;
+    }
+  }
+
+  void _enterReorderMode() {
+    if (!_isReorderMode) {
+      setState(() => _isReorderMode = true);
+    }
+  }
+
+  void _exitReorderMode() {
+    if (_isReorderMode) {
+      setState(() => _isReorderMode = false);
+    }
+  }
+
+  void _enterSelectionWith(String id) {
+    setState(() {
+      _isReorderMode = false;
+      _selectedIds.add(id);
+    });
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (!_selectedIds.remove(id)) {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    if (_selectedIds.isEmpty) {
+      return;
+    }
+    setState(_selectedIds.clear);
+  }
+
+  void _selectAll(List<ShortcutEntry> entries) {
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(entries.map((ShortcutEntry e) => e.id));
+    });
+  }
+
+  void _pruneStaleSelectedIds(List<ShortcutEntry> entries) {
+    if (_selectedIds.isEmpty) {
+      return;
+    }
+    final Set<String> liveIds = entries.map((ShortcutEntry e) => e.id).toSet();
+    _selectedIds.removeWhere((String id) => !liveIds.contains(id));
+  }
 
   @override
   Widget build(BuildContext context) {
     final ShortcutStore store = context.watch<ShortcutStore>();
     final ThemeData theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('YT Shortcuts'),
+    if (_isReorderMode && store.entries.isEmpty) {
+      _isReorderMode = false;
+    }
+    _pruneStaleSelectedIds(store.entries);
+
+    final List<ShortcutEntry> visibleEntries = _isReorderMode
+        ? store.entries
+        : _applyFilters(store.entriesSorted);
+
+    final PreferredSizeWidget appBar;
+    if (_isReorderMode) {
+      appBar = AppBar(
+        leading: IconButton(
+          tooltip: 'Exit reorder mode',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: _exitReorderMode,
+        ),
+        title: const Text('Reorder shortcuts'),
         actions: <Widget>[
-          if (store.entries.isNotEmpty)
-            PopupMenuButton<_HomeAction>(
-              tooltip: 'Options',
-              onSelected: (_HomeAction action) =>
-                  _handleHomeAction(context, action),
-              itemBuilder: (BuildContext context) =>
-                  const <PopupMenuEntry<_HomeAction>>[
-                    PopupMenuItem<_HomeAction>(
-                      value: _HomeAction.clearAll,
-                      child: Text('Clear all shortcuts'),
+          TextButton(onPressed: _exitReorderMode, child: const Text('Done')),
+        ],
+      );
+    } else if (_isSelectionMode) {
+      appBar = _buildSelectionAppBar(context, store, visibleEntries);
+    } else {
+      appBar = _buildDefaultAppBar(context, store);
+    }
+
+    final String subtitle;
+    if (store.entries.isEmpty) {
+      subtitle =
+          'Save the links you open often. Each shortcut stays local on this device.';
+    } else if (_isReorderMode) {
+      subtitle =
+          'Long-press and drag cards to reorder them. Tap Done when finished.';
+    } else if (_isSelectionMode) {
+      subtitle = 'Tap to toggle selection. Press back to exit.';
+    } else {
+      subtitle = 'Tap a shortcut to open it. Long-press to select multiple.';
+    }
+
+    final bool showFilterBar =
+        store.entries.isNotEmpty && !_isReorderMode && !_isSelectionMode;
+    final bool showNoMatches =
+        !store.isLoading &&
+        store.entries.isNotEmpty &&
+        visibleEntries.isEmpty &&
+        _isFilterActive;
+
+    return PopScope(
+      canPop: !_isSelectionMode,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _clearSelection();
+      },
+      child: Scaffold(
+        appBar: appBar,
+        floatingActionButton: (_isReorderMode || _isSelectionMode)
+            ? null
+            : _GlassAddFab(onPressed: () => _openAddShortcut(context)),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 108),
+          children: <Widget>[
+            if (store.entries.isEmpty) ...<Widget>[
+              _HomeHero(entryCount: store.entries.length),
+              const SizedBox(height: 20),
+            ],
+            Row(
+              children: <Widget>[
+                Text(
+                  'Shortcut Sections',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (store.entries.isNotEmpty) ...<Widget>[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: theme.brightness == Brightness.dark
+                          ? const Color(0xFF2DD4BF)
+                          : const Color(0xFFD73A23),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _isFilterActive && !_isReorderMode
+                          ? '${visibleEntries.length}/${store.entries.length}'
+                          : '${store.entries.length}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () => _openSettings(context),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddShortcut(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add shortcut'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 108),
-        children: <Widget>[
-          if (store.entries.isEmpty) ...<Widget>[
-            _HomeHero(entryCount: store.entries.length),
-            const SizedBox(height: 20),
-          ],
-          Text(
-            'Shortcut section',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            store.entries.isEmpty
-                ? 'Save the links you open often. Each shortcut stays local on this device.'
-                : 'Long-press and drag cards to rearrange them. Tap a card to open it in the YouTube app.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (store.isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            )
-          else if (store.entries.isEmpty)
-            _EmptyShortcutState(onAddPressed: () => _openAddShortcut(context))
-          else
-            _ShortcutGrid(
-              entries: store.entries,
-              launchingShortcutId: store.launchingShortcutId,
-              onOpen: (ShortcutEntry entry) => _launchShortcut(context, entry),
-              onEdit: (ShortcutEntry entry) =>
-                  _openEditShortcut(context, entry),
-              onDelete: (ShortcutEntry entry) =>
-                  _deleteShortcut(context, entry),
-              onReorder: (int oldIndex, int newIndex) {
-                _reorderShortcuts(context, oldIndex, newIndex);
-              },
             ),
-        ],
+            if (showFilterBar) ...<Widget>[
+              const SizedBox(height: 14),
+              _ShortcutFilterBar(
+                searchController: _searchController,
+                searchQuery: _searchQuery,
+                typeFilters: _typeFilters,
+                onSearchChanged: _onSearchChanged,
+                onClearSearch: _clearSearch,
+                onToggleType: _toggleTypeFilter,
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (store.isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (store.entries.isEmpty)
+              _EmptyShortcutState(onAddPressed: () => _openAddShortcut(context))
+            else if (showNoMatches)
+              _NoFilterMatchesState(onClear: _clearAllFilters)
+            else
+              _ShortcutGrid(
+                entries: visibleEntries,
+                launchingShortcutId: store.launchingShortcutId,
+                isList: store.layoutPreference == AppLayoutPreference.list,
+                isReorderMode: _isReorderMode,
+                isSelectionMode: _isSelectionMode,
+                selectedIds: _selectedIds,
+                onOpen: (ShortcutEntry entry) =>
+                    _launchShortcut(context, entry),
+                onSwipeDelete: (ShortcutEntry entry) =>
+                    _swipeDeleteShortcut(context, entry),
+                onReorder: (int oldIndex, int newIndex) {
+                  _reorderShortcuts(context, oldIndex, newIndex);
+                },
+                onLongPressEntry: (ShortcutEntry entry) =>
+                    _enterSelectionWith(entry.id),
+                onToggleSelect: (ShortcutEntry entry) =>
+                    _toggleSelection(entry.id),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _clearAllFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _typeFilters.clear();
+    });
+  }
+
+  PreferredSizeWidget _buildDefaultAppBar(
+    BuildContext context,
+    ShortcutStore store,
+  ) {
+    final bool sortIsManual =
+        store.sortPreference == ShortcutSortPreference.manual;
+
+    return AppBar(
+      title: const Text('YT Shortcuts'),
+      actions: <Widget>[
+        if (store.entries.isNotEmpty) ...<Widget>[
+          IconButton(
+            tooltip: store.layoutPreference == AppLayoutPreference.grid
+                ? 'Switch to list view'
+                : 'Switch to grid view',
+            icon: Icon(
+              store.layoutPreference == AppLayoutPreference.grid
+                  ? Icons.view_list_rounded
+                  : Icons.grid_view_rounded,
+            ),
+            onPressed: () => _toggleLayout(context, store.layoutPreference),
+          ),
+          PopupMenuButton<ShortcutSortPreference>(
+            tooltip: 'Sort shortcuts',
+            icon: const Icon(Icons.sort_rounded),
+            initialValue: store.sortPreference,
+            onSelected: (ShortcutSortPreference preference) =>
+                _setSortPreference(context, preference),
+            itemBuilder: (BuildContext context) =>
+                <PopupMenuEntry<ShortcutSortPreference>>[
+                  for (final ShortcutSortPreference preference
+                      in ShortcutSortPreference.values)
+                    CheckedPopupMenuItem<ShortcutSortPreference>(
+                      value: preference,
+                      checked: store.sortPreference == preference,
+                      child: Text(preference.label),
+                    ),
+                ],
+          ),
+          PopupMenuButton<_HomeAction>(
+            tooltip: 'Options',
+            onSelected: (_HomeAction action) =>
+                _handleHomeAction(context, action),
+            itemBuilder: (BuildContext context) =>
+                <PopupMenuEntry<_HomeAction>>[
+                  PopupMenuItem<_HomeAction>(
+                    value: _HomeAction.reorder,
+                    enabled: sortIsManual,
+                    child: Text(
+                      sortIsManual
+                          ? 'Reorder shortcuts'
+                          : 'Reorder shortcuts (manual sort only)',
+                    ),
+                  ),
+                  const PopupMenuItem<_HomeAction>(
+                    value: _HomeAction.clearAll,
+                    child: Text('Clear all shortcuts'),
+                  ),
+                ],
+          ),
+        ],
+        IconButton(
+          tooltip: 'Settings',
+          onPressed: () => _openSettings(context),
+          icon: const Icon(Icons.settings_outlined),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _setSortPreference(
+    BuildContext context,
+    ShortcutSortPreference preference,
+  ) async {
+    try {
+      await context.read<ShortcutStore>().setSortPreference(preference);
+    } on ShortcutStorageException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    ShortcutStore store,
+    List<ShortcutEntry> visibleEntries,
+  ) {
+    final int count = _selectedIds.length;
+    final bool single = count == 1;
+    final bool allVisibleSelected =
+        visibleEntries.isNotEmpty &&
+        visibleEntries.every((ShortcutEntry e) => _selectedIds.contains(e.id));
+
+    final ShortcutEntry? singleEntry = single
+        ? store.entries.firstWhere(
+            (ShortcutEntry e) => e.id == _selectedIds.first,
+          )
+        : null;
+
+    return AppBar(
+      leading: IconButton(
+        tooltip: 'Clear selection',
+        icon: const Icon(Icons.close_rounded),
+        onPressed: _clearSelection,
+      ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text('$count'),
+          const SizedBox(width: 6),
+          const Icon(Icons.check_rounded, size: 20),
+        ],
+      ),
+      actions: <Widget>[
+        if (single && singleEntry != null) ...<Widget>[
+          IconButton(
+            tooltip: 'Shortcut details',
+            icon: const Icon(Icons.info_outline_rounded),
+            onPressed: () => _openDetailsFromSelection(context, singleEntry),
+          ),
+          IconButton(
+            tooltip: 'Edit shortcut',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _editFromSelection(context, singleEntry),
+          ),
+          IconButton(
+            tooltip: 'Copy URL',
+            icon: const Icon(Icons.copy_rounded),
+            onPressed: () => _copyUrlFromSelection(context, singleEntry),
+          ),
+        ],
+        IconButton(
+          tooltip: 'Export selected',
+          icon: _isExportingSelection
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.ios_share_rounded),
+          onPressed: _isExportingSelection
+              ? null
+              : () => _exportSelection(context, store),
+        ),
+        IconButton(
+          tooltip: 'Delete selected',
+          icon: const Icon(Icons.delete_outline_rounded),
+          onPressed: () => _deleteSelection(context, store),
+        ),
+        if (!allVisibleSelected)
+          PopupMenuButton<_SelectionAction>(
+            tooltip: 'More',
+            onSelected: (_SelectionAction action) {
+              if (action == _SelectionAction.selectAll) {
+                _selectAll(visibleEntries);
+              }
+            },
+            itemBuilder: (BuildContext context) =>
+                const <PopupMenuEntry<_SelectionAction>>[
+                  PopupMenuItem<_SelectionAction>(
+                    value: _SelectionAction.selectAll,
+                    child: Text('Select all'),
+                  ),
+                ],
+          ),
+      ],
+    );
+  }
+
+  Future<void> _toggleLayout(
+    BuildContext context,
+    AppLayoutPreference current,
+  ) async {
+    final AppLayoutPreference next = current == AppLayoutPreference.grid
+        ? AppLayoutPreference.list
+        : AppLayoutPreference.grid;
+    await context.read<ShortcutStore>().setLayoutPreference(next);
   }
 
   Future<void> _openAddShortcut(BuildContext context) async {
@@ -170,7 +605,7 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _deleteShortcut(
+  Future<bool?> _swipeDeleteShortcut(
     BuildContext context,
     ShortcutEntry entry,
   ) async {
@@ -195,27 +630,35 @@ class HomeScreen extends StatelessWidget {
     );
 
     if (shouldDelete != true || !context.mounted) {
-      return;
+      return false;
     }
 
     await context.read<ShortcutStore>().deleteShortcut(entry.id);
+
     if (!context.mounted) {
-      return;
+      return true;
     }
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Removed "${entry.name}".')));
+
+    return true;
   }
 
   Future<void> _handleHomeAction(
     BuildContext context,
     _HomeAction action,
   ) async {
-    if (action != _HomeAction.clearAll) {
-      return;
+    switch (action) {
+      case _HomeAction.reorder:
+        _enterReorderMode();
+      case _HomeAction.clearAll:
+        await _confirmAndClearAll(context);
     }
+  }
 
+  Future<void> _confirmAndClearAll(BuildContext context) async {
     final bool? shouldClear = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -251,33 +694,191 @@ class HomeScreen extends StatelessWidget {
       context,
     ).showSnackBar(const SnackBar(content: Text('All shortcuts cleared.')));
   }
+
+  Future<void> _editFromSelection(
+    BuildContext context,
+    ShortcutEntry entry,
+  ) async {
+    await _openEditShortcut(context, entry);
+    if (!mounted) return;
+    _clearSelection();
+  }
+
+  Future<void> _openDetailsFromSelection(
+    BuildContext context,
+    ShortcutEntry entry,
+  ) async {
+    final String? message = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (BuildContext context) =>
+            ShortcutDetailScreen(shortcutId: entry.id),
+      ),
+    );
+
+    if (!mounted) return;
+    _clearSelection();
+
+    if (message == null || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _copyUrlFromSelection(
+    BuildContext context,
+    ShortcutEntry entry,
+  ) async {
+    await Clipboard.setData(ClipboardData(text: entry.canonicalUrl));
+    if (!context.mounted) return;
+    _clearSelection();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('URL copied to clipboard.')));
+  }
+
+  Future<void> _deleteSelection(
+    BuildContext context,
+    ShortcutStore store,
+  ) async {
+    final List<ShortcutEntry> picked = store.entries
+        .where((ShortcutEntry entry) => _selectedIds.contains(entry.id))
+        .toList(growable: false);
+    if (picked.isEmpty) return;
+
+    final int count = picked.length;
+    final String message = count == 1
+        ? 'Remove "${picked.first.name}" from the local shortcut list?'
+        : 'Remove $count shortcuts from the local shortcut list?';
+
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            count == 1 ? 'Delete shortcut?' : 'Delete $count shortcuts?',
+          ),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !context.mounted) {
+      return;
+    }
+
+    final List<String> ids = picked
+        .map((ShortcutEntry e) => e.id)
+        .toList(growable: false);
+    await store.deleteShortcuts(ids);
+    if (!mounted) return;
+    _clearSelection();
+
+    if (!context.mounted) return;
+    final String snack = count == 1
+        ? 'Removed "${picked.first.name}".'
+        : 'Removed $count shortcuts.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snack)));
+  }
+
+  Future<void> _exportSelection(
+    BuildContext context,
+    ShortcutStore store,
+  ) async {
+    final List<ShortcutEntry> picked = store.entries
+        .where((ShortcutEntry entry) => _selectedIds.contains(entry.id))
+        .toList(growable: false);
+    if (picked.isEmpty) return;
+
+    setState(() => _isExportingSelection = true);
+    try {
+      final BackupExportOutcome outcome = await store.exportShortcutsToFile(
+        entriesOverride: picked,
+      );
+      if (!context.mounted) return;
+      switch (outcome) {
+        case BackupExportSuccess(
+          :final int exportedCount,
+          :final String destinationLabel,
+        ):
+          _clearSelection();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Exported $exportedCount shortcut'
+                '${exportedCount == 1 ? '' : 's'} to "$destinationLabel".',
+              ),
+            ),
+          );
+        case BackupExportCancelled():
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Export cancelled.')));
+      }
+    } on ShortcutBackupException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingSelection = false);
+      }
+    }
+  }
 }
 
-enum _HomeAction { clearAll }
+enum _HomeAction { reorder, clearAll }
+
+enum _SelectionAction { selectAll }
 
 class _ShortcutGrid extends StatelessWidget {
   const _ShortcutGrid({
     required this.entries,
     required this.launchingShortcutId,
+    required this.isList,
+    required this.isReorderMode,
+    required this.isSelectionMode,
+    required this.selectedIds,
     required this.onOpen,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onSwipeDelete,
     required this.onReorder,
+    required this.onLongPressEntry,
+    required this.onToggleSelect,
   });
 
   final List<ShortcutEntry> entries;
   final String? launchingShortcutId;
+  final bool isList;
+  final bool isReorderMode;
+  final bool isSelectionMode;
+  final Set<String> selectedIds;
   final ValueChanged<ShortcutEntry> onOpen;
-  final ValueChanged<ShortcutEntry> onEdit;
-  final ValueChanged<ShortcutEntry> onDelete;
+  final Future<bool?> Function(ShortcutEntry) onSwipeDelete;
   final void Function(int oldIndex, int newIndex) onReorder;
+  final ValueChanged<ShortcutEntry> onLongPressEntry;
+  final ValueChanged<ShortcutEntry> onToggleSelect;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         const double spacing = 12;
-        final int columnCount = constraints.maxWidth >= 680 ? 3 : 2;
+        final int columnCount = isList
+            ? 1
+            : (constraints.maxWidth >= 680 ? 3 : 2);
         final double cardWidth =
             (constraints.maxWidth - (spacing * (columnCount - 1))) /
             columnCount;
@@ -287,19 +888,47 @@ class _ShortcutGrid extends StatelessWidget {
           runSpacing: spacing,
           children: List<Widget>.generate(entries.length, (int index) {
             final ShortcutEntry entry = entries[index];
+            final bool isSelected = selectedIds.contains(entry.id);
 
-            return SizedBox(
+            final Widget card = SizedBox(
               width: cardWidth,
               child: _ReorderableShortcutGridCard(
                 index: index,
                 cardWidth: cardWidth,
                 entry: entry,
                 isLaunching: launchingShortcutId == entry.id,
+                isReorderMode: isReorderMode,
+                isSelectionMode: isSelectionMode,
+                isSelected: isSelected,
                 onOpen: () => onOpen(entry),
-                onEdit: () => onEdit(entry),
-                onDelete: () => onDelete(entry),
                 onReorder: onReorder,
+                onLongPress: () => onLongPressEntry(entry),
+                onToggleSelect: () => onToggleSelect(entry),
               ),
+            );
+
+            if (isReorderMode || isSelectionMode) {
+              return card;
+            }
+
+            return Dismissible(
+              key: ValueKey<String>(entry.id),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => onSwipeDelete(entry),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade700,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              child: card,
             );
           }),
         );
@@ -314,20 +943,26 @@ class _ReorderableShortcutGridCard extends StatelessWidget {
     required this.cardWidth,
     required this.entry,
     required this.isLaunching,
+    required this.isReorderMode,
+    required this.isSelectionMode,
+    required this.isSelected,
     required this.onOpen,
-    required this.onEdit,
-    required this.onDelete,
     required this.onReorder,
+    required this.onLongPress,
+    required this.onToggleSelect,
   });
 
   final int index;
   final double cardWidth;
   final ShortcutEntry entry;
   final bool isLaunching;
+  final bool isReorderMode;
+  final bool isSelectionMode;
+  final bool isSelected;
   final VoidCallback onOpen;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final void Function(int oldIndex, int newIndex) onReorder;
+  final VoidCallback onLongPress;
+  final VoidCallback onToggleSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -352,9 +987,12 @@ class _ReorderableShortcutGridCard extends StatelessWidget {
             final Widget card = _ShortcutCard(
               entry: entry,
               isLaunching: isLaunching,
+              isReorderMode: isReorderMode,
+              isSelectionMode: isSelectionMode,
+              isSelected: isSelected,
               onOpen: onOpen,
-              onEdit: onEdit,
-              onDelete: onDelete,
+              onLongPress: onLongPress,
+              onToggleSelect: onToggleSelect,
             );
 
             final Widget decoratedCard = AnimatedContainer(
@@ -368,8 +1006,13 @@ class _ReorderableShortcutGridCard extends StatelessWidget {
               child: card,
             );
 
+            if (!isReorderMode) {
+              return decoratedCard;
+            }
+
             return LongPressDraggable<int>(
               data: index,
+              delay: const Duration(milliseconds: 200),
               feedback: Material(
                 color: Colors.transparent,
                 child: SizedBox(
@@ -381,6 +1024,121 @@ class _ReorderableShortcutGridCard extends StatelessWidget {
               child: decoratedCard,
             );
           },
+    );
+  }
+}
+
+class _ShortcutFilterBar extends StatelessWidget {
+  const _ShortcutFilterBar({
+    required this.searchController,
+    required this.searchQuery,
+    required this.typeFilters,
+    required this.onSearchChanged,
+    required this.onClearSearch,
+    required this.onToggleType,
+  });
+
+  final TextEditingController searchController;
+  final String searchQuery;
+  final Set<ShortcutTargetType> typeFilters;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<ShortcutTargetType> onToggleType;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        TextField(
+          controller: searchController,
+          onChanged: onSearchChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Search shortcuts',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: searchQuery.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: onClearSearch,
+                  ),
+            isDense: true,
+            filled: true,
+            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.6,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ShortcutTargetType.values
+              .map((ShortcutTargetType type) {
+                return FilterChip(
+                  label: Text(type.label),
+                  selected: typeFilters.contains(type),
+                  onSelected: (_) => onToggleType(type),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              })
+              .toList(growable: false),
+        ),
+      ],
+    );
+  }
+}
+
+class _NoFilterMatchesState extends StatelessWidget {
+  const _NoFilterMatchesState({required this.onClear});
+
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'No matching shortcuts',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Try a different search term or clear the filters.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: onClear,
+              icon: const Icon(Icons.filter_alt_off_outlined),
+              label: const Text('Clear filters'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -502,57 +1260,78 @@ class _ShortcutCard extends StatelessWidget {
   const _ShortcutCard({
     required this.entry,
     required this.isLaunching,
+    required this.isReorderMode,
+    required this.isSelectionMode,
+    required this.isSelected,
     required this.onOpen,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onLongPress,
+    required this.onToggleSelect,
   });
 
   final ShortcutEntry entry;
   final bool isLaunching;
+  final bool isReorderMode;
+  final bool isSelectionMode;
+  final bool isSelected;
   final VoidCallback onOpen;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onLongPress;
+  final VoidCallback onToggleSelect;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final _ShortcutTypeVisual visual = entry.targetType.visual(
-      theme.brightness,
-    );
+    final Color typeAccent = entry.targetType.accent(theme.brightness);
+    final Color avatarColor = _avatarColorFor(entry.id);
+    final String avatarLetters = _avatarLettersFor(entry.name);
     const BorderRadius cardBorderRadius = BorderRadius.all(Radius.circular(20));
 
-    final Color cardTopColor = Color.alphaBlend(
-      visual.accent.withValues(alpha: isDark ? 0.22 : 0.08),
-      theme.colorScheme.surfaceContainerHigh,
+    const Color darkBaseTop = Color(0xFF12181A);
+    const Color darkBaseBottom = Color(0xFF0A0E10);
+    const Color lightBaseTop = Color(0xFFFFFFFF);
+    const Color lightBaseBottom = Color(0xFFF6F1EE);
+
+    final Color cardTopColor = isDark
+        ? Color.alphaBlend(typeAccent.withValues(alpha: 0.18), darkBaseTop)
+        : Color.alphaBlend(typeAccent.withValues(alpha: 0.08), lightBaseTop);
+    final Color cardBottomColor = isDark
+        ? Color.alphaBlend(typeAccent.withValues(alpha: 0.05), darkBaseBottom)
+        : Color.alphaBlend(typeAccent.withValues(alpha: 0.03), lightBaseBottom);
+    final Color baseBorderColor = typeAccent.withValues(
+      alpha: isDark ? 0.40 : 0.28,
     );
-    final Color cardBottomColor = theme.colorScheme.surfaceContainerLow;
-    final Color borderColor = theme.colorScheme.outlineVariant.withValues(
-      alpha: isDark ? 0.92 : 0.55,
-    );
+    final Color borderColor = isSelected
+        ? theme.colorScheme.primary
+        : baseBorderColor;
+    final double borderWidth = isSelected ? 2.0 : 1.0;
 
     final List<BoxShadow> cardShadows = isDark
         ? <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.42),
-              offset: const Offset(0, 8),
-              blurRadius: 16,
+              color: typeAccent.withValues(alpha: 0.22),
+              offset: const Offset(0, 6),
+              blurRadius: 22,
               spreadRadius: 0.5,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.55),
+              offset: const Offset(0, 10),
+              blurRadius: 18,
             ),
           ]
-        : const <BoxShadow>[
+        : <BoxShadow>[
             BoxShadow(
-              color: Color(0x14A56E5A),
-              offset: Offset(0, 8),
-              blurRadius: 16,
+              color: typeAccent.withValues(alpha: 0.18),
+              offset: const Offset(0, 8),
+              blurRadius: 22,
               spreadRadius: 0.5,
             ),
-            BoxShadow(
-              color: Color(0x10D29E89),
-              offset: Offset(0, 2),
-              blurRadius: 3,
+            const BoxShadow(
+              color: Color(0x14A56E5A),
+              offset: Offset(0, 4),
+              blurRadius: 10,
             ),
-            BoxShadow(
+            const BoxShadow(
               color: Color(0xC9FFFFFF),
               offset: Offset(-2, -2),
               blurRadius: 4,
@@ -560,202 +1339,217 @@ class _ShortcutCard extends StatelessWidget {
             ),
           ];
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: cardBorderRadius,
-        boxShadow: cardShadows,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: cardBorderRadius,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: cardBorderRadius,
-            border: Border.fromBorderSide(BorderSide(color: borderColor)),
-            gradient: LinearGradient(
-              colors: <Color>[cardTopColor, cardBottomColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: cardBorderRadius,
+          boxShadow: cardShadows,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: cardBorderRadius,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: cardBorderRadius,
+              border: Border.fromBorderSide(
+                BorderSide(color: borderColor, width: borderWidth),
+              ),
+              gradient: LinearGradient(
+                colors: <Color>[cardTopColor, cardBottomColor],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
-          ),
-          child: Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: cardBorderRadius,
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          theme.colorScheme.onSurface.withValues(
-                            alpha: isDark ? 0.07 : 0.035,
-                          ),
-                          Colors.transparent,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: const Alignment(0.4, 0.2),
+            child: Stack(
+              children: <Widget>[
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: cardBorderRadius,
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            Colors.white.withValues(
+                              alpha: isDark ? 0.10 : 0.45,
+                            ),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: const Alignment(0.5, 0.3),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              InkWell(
-                borderRadius: cardBorderRadius,
-                onTap: isLaunching ? null : onOpen,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Stack(
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.only(right: 36),
-                        child: Column(
+                InkWell(
+                  borderRadius: cardBorderRadius,
+                  onTap: (isLaunching || isReorderMode)
+                      ? null
+                      : (isSelectionMode ? onToggleSelect : onOpen),
+                  onLongPress: (isLaunching || isReorderMode)
+                      ? null
+                      : onLongPress,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: <Color>[
-                                        theme.colorScheme.surface,
-                                        visual.accent.withValues(
-                                          alpha: isDark ? 0.2 : 0.08,
-                                        ),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: avatarColor,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: avatarColor.withValues(
+                                      alpha: isDark ? 0.45 : 0.30,
                                     ),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: visual.accent.withValues(
-                                        alpha: isDark ? 0.42 : 0.22,
-                                      ),
-                                    ),
-                                    boxShadow: <BoxShadow>[
-                                      BoxShadow(
-                                        color: visual.accent.withValues(
-                                          alpha: isDark ? 0.2 : 0.14,
-                                        ),
-                                        offset: const Offset(0, 2),
-                                        blurRadius: 6,
-                                      ),
-                                    ],
+                                    offset: const Offset(0, 3),
+                                    blurRadius: 12,
+                                    spreadRadius: 0.5,
                                   ),
-                                  child: Icon(
-                                    visual.icon,
-                                    color: visual.accent,
-                                    size: 22,
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  avatarLetters,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                    letterSpacing: -0.2,
+                                    height: 1.0,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 1),
-                                    child: Text(
-                                      entry.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                    ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Text(
+                                  entry.name,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: theme.colorScheme.onSurface,
                                   ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 2),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  typeAccent.withValues(
+                                    alpha: isDark ? 0.36 : 0.22,
+                                  ),
+                                  typeAccent.withValues(
+                                    alpha: isDark ? 0.22 : 0.12,
+                                  ),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: typeAccent.withValues(
+                                  alpha: isDark ? 0.62 : 0.30,
+                                ),
+                              ),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: typeAccent.withValues(
+                                    alpha: isDark ? 0.26 : 0.12,
+                                  ),
+                                  offset: const Offset(0, 2),
+                                  blurRadius: 6,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 2),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: <Color>[
-                                      visual.accent.withValues(
-                                        alpha: isDark ? 0.28 : 0.18,
-                                      ),
-                                      visual.accent.withValues(
-                                        alpha: isDark ? 0.18 : 0.1,
-                                      ),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: visual.accent.withValues(
-                                      alpha: isDark ? 0.5 : 0.22,
-                                    ),
-                                  ),
-                                  boxShadow: <BoxShadow>[
-                                    BoxShadow(
-                                      color: visual.accent.withValues(
-                                        alpha: isDark ? 0.2 : 0.1,
-                                      ),
-                                      offset: const Offset(0, 2),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  entry.targetType.label,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: visual.accent,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                            child: Text(
+                              entry.targetType.label,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: typeAccent,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            IconButton(
-                              tooltip: 'Edit',
-                              onPressed: isLaunching ? null : onEdit,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 32,
-                                height: 32,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              iconSize: 18,
-                              icon: const Icon(Icons.edit_outlined),
-                            ),
-                            const SizedBox(height: 2),
-                            IconButton(
-                              tooltip: 'Delete',
-                              onPressed: isLaunching ? null : onDelete,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 32,
-                                height: 32,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              iconSize: 18,
-                              icon: const Icon(Icons.delete_outline_rounded),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: !isLaunching,
+                    child: AnimatedOpacity(
+                      opacity: isLaunching ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.38),
+                          borderRadius: cardBorderRadius,
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: isLaunching
+                                ? const CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2.5,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isSelected)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -763,38 +1557,170 @@ class _ShortcutCard extends StatelessWidget {
   }
 }
 
-class _ShortcutTypeVisual {
-  const _ShortcutTypeVisual(this.icon, this.accent);
+class _GlassAddFab extends StatelessWidget {
+  const _GlassAddFab({required this.onPressed});
 
-  final IconData icon;
-  final Color accent;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    final Color accent = isDark
+        ? const Color(0xFF2DD4BF)
+        : const Color(0xFFD73A23);
+    const double size = 64;
+    const BorderRadius radius = BorderRadius.all(Radius.circular(22));
+
+    final Color fillTop = isDark
+        ? accent.withValues(alpha: 0.28)
+        : accent.withValues(alpha: 0.22);
+    final Color fillBottom = isDark
+        ? accent.withValues(alpha: 0.10)
+        : Colors.white.withValues(alpha: 0.55);
+    final Color borderColor = isDark
+        ? accent.withValues(alpha: 0.60)
+        : accent.withValues(alpha: 0.45);
+    final Color innerHighlight = isDark
+        ? Colors.white.withValues(alpha: 0.22)
+        : Colors.white.withValues(alpha: 0.85);
+
+    return Tooltip(
+      message: 'Add shortcut',
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: accent.withValues(alpha: isDark ? 0.45 : 0.32),
+                blurRadius: 26,
+                spreadRadius: 1,
+                offset: const Offset(0, 10),
+              ),
+              if (isDark)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  gradient: LinearGradient(
+                    colors: <Color>[fillTop, fillBottom],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  border: Border.all(color: borderColor, width: 1),
+                ),
+                child: Stack(
+                  children: <Widget>[
+                    Positioned(
+                      left: 8,
+                      right: 8,
+                      top: 1,
+                      child: Container(
+                        height: 1,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              Colors.transparent,
+                              innerHighlight,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: radius,
+                        onTap: onPressed,
+                        child: Center(
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: accent,
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 extension on ShortcutTargetType {
-  _ShortcutTypeVisual visual(Brightness brightness) {
+  Color accent(Brightness brightness) {
     final bool isDark = brightness == Brightness.dark;
+    const Color lightAccent = Color(0xFFD73A23);
 
     switch (this) {
       case ShortcutTargetType.video:
-        return _ShortcutTypeVisual(
-          Icons.play_circle_fill_rounded,
-          isDark ? const Color(0xFFFF8A65) : const Color(0xFFD73A23),
-        );
+        return isDark ? const Color(0xFFFF8A65) : lightAccent;
       case ShortcutTargetType.shortVideo:
-        return _ShortcutTypeVisual(
-          Icons.flash_on_rounded,
-          isDark ? const Color(0xFFFFB74D) : const Color(0xFFEF6C00),
-        );
+        return isDark ? const Color(0xFFFFB74D) : lightAccent;
       case ShortcutTargetType.playlist:
-        return _ShortcutTypeVisual(
-          Icons.queue_music_rounded,
-          isDark ? const Color(0xFFBCAAA4) : const Color(0xFF6D4C41),
-        );
+        return isDark ? const Color(0xFFBCAAA4) : lightAccent;
       case ShortcutTargetType.channel:
-        return _ShortcutTypeVisual(
-          Icons.person_pin_circle_rounded,
-          isDark ? const Color(0xFF4DB6AC) : const Color(0xFF00897B),
-        );
+        return isDark ? const Color(0xFF4DB6AC) : lightAccent;
     }
   }
+}
+
+const List<Color> _avatarPalette = <Color>[
+  Color(0xFFD73A23),
+  Color(0xFFEA580C),
+  Color(0xFFCA8A04),
+  Color(0xFF65A30D),
+  Color(0xFF059669),
+  Color(0xFF0D9488),
+  Color(0xFF0891B2),
+  Color(0xFF2563EB),
+  Color(0xFF6366F1),
+  Color(0xFF7C3AED),
+  Color(0xFFC026D3),
+  Color(0xFFDB2777),
+];
+
+Color _avatarColorFor(String seed) {
+  int hash = 0;
+  for (final int unit in seed.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7FFFFFFF;
+  }
+  return _avatarPalette[hash % _avatarPalette.length];
+}
+
+String _avatarLettersFor(String name) {
+  final List<String> words = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((String word) => word.isNotEmpty)
+      .toList();
+  if (words.isEmpty) {
+    return '?';
+  }
+  if (words.length == 1) {
+    final String word = words.first;
+    final String taken = word.length >= 2 ? word.substring(0, 2) : word;
+    return taken.toUpperCase();
+  }
+  return (words[0][0] + words[1][0]).toUpperCase();
 }

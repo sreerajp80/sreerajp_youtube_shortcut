@@ -84,8 +84,10 @@ lib/
     |-- about_constants.dart
     |-- app_shell.dart
     |-- shortcut_models.dart
-    |-- shortcut_services.dart
+    |-- shortcut_repository.dart
     |-- shortcut_store.dart
+    |-- youtube_launcher_service.dart
+    |-- youtube_url_formatter.dart
     `-- screens/
         |-- home_screen.dart
         |-- add_shortcut_screen.dart

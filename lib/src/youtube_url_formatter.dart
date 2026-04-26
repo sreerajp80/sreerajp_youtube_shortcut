@@ -1,158 +1,7 @@
-import 'dart:convert';
 import 'dart:math';
 
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../core/errors/app_exception.dart';
 import 'shortcut_models.dart';
-
-abstract class ShortcutRepository {
-  Future<List<ShortcutEntry>> loadShortcuts();
-
-  Future<void> saveShortcuts(List<ShortcutEntry> entries);
-
-  Future<AppThemePreference> loadThemePreference();
-
-  Future<void> saveThemePreference(AppThemePreference preference);
-}
-
-class SharedPreferencesShortcutRepository implements ShortcutRepository {
-  SharedPreferencesShortcutRepository(this._preferences);
-
-  final SharedPreferences _preferences;
-
-  static const String _shortcutStorageKey = 'shortcut_entries_v1';
-  static const String _themePreferenceStorageKey = 'app_theme_preference_v1';
-
-  @override
-  Future<List<ShortcutEntry>> loadShortcuts() async {
-    try {
-      final String? raw = _preferences.getString(_shortcutStorageKey);
-      if (raw == null || raw.trim().isEmpty) {
-        return const <ShortcutEntry>[];
-      }
-
-      final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded
-          .map(
-            (dynamic item) =>
-                ShortcutEntry.fromJson(item as Map<String, dynamic>),
-          )
-          .toList(growable: false);
-    } catch (_) {
-      throw const ShortcutStorageException(
-        'Saved shortcuts could not be read from local storage.',
-      );
-    }
-  }
-
-  @override
-  Future<void> saveShortcuts(List<ShortcutEntry> entries) async {
-    try {
-      final String encoded = jsonEncode(
-        entries
-            .map((ShortcutEntry entry) => entry.toJson())
-            .toList(growable: false),
-      );
-      final bool saved = await _preferences.setString(
-        _shortcutStorageKey,
-        encoded,
-      );
-      if (!saved) {
-        throw const ShortcutStorageException(
-          'Local shortcut save was rejected.',
-        );
-      }
-    } catch (error) {
-      if (error is ShortcutStorageException) {
-        rethrow;
-      }
-      throw const ShortcutStorageException(
-        'Local shortcut save failed. Please try again.',
-      );
-    }
-  }
-
-  @override
-  Future<AppThemePreference> loadThemePreference() async {
-    final String? raw = _preferences.getString(_themePreferenceStorageKey);
-    return AppThemePreference.fromStorageValue(raw);
-  }
-
-  @override
-  Future<void> saveThemePreference(AppThemePreference preference) async {
-    final bool saved = await _preferences.setString(
-      _themePreferenceStorageKey,
-      preference.storageValue,
-    );
-    if (!saved) {
-      throw const ShortcutStorageException(
-        'Theme preference could not be saved locally.',
-      );
-    }
-  }
-}
-
-class MemoryShortcutRepository implements ShortcutRepository {
-  MemoryShortcutRepository([List<ShortcutEntry>? initialEntries])
-    : _entries = List<ShortcutEntry>.from(
-        initialEntries ?? const <ShortcutEntry>[],
-      );
-
-  List<ShortcutEntry> _entries;
-  AppThemePreference _themePreference = AppThemePreference.system;
-
-  @override
-  Future<List<ShortcutEntry>> loadShortcuts() async {
-    return List<ShortcutEntry>.from(_entries);
-  }
-
-  @override
-  Future<void> saveShortcuts(List<ShortcutEntry> entries) async {
-    _entries = List<ShortcutEntry>.from(entries);
-  }
-
-  @override
-  Future<AppThemePreference> loadThemePreference() async {
-    return _themePreference;
-  }
-
-  @override
-  Future<void> saveThemePreference(AppThemePreference preference) async {
-    _themePreference = preference;
-  }
-}
-
-abstract class YoutubeLauncher {
-  Future<void> openShortcut(ShortcutEntry entry);
-}
-
-class YoutubeLauncherService implements YoutubeLauncher {
-  const YoutubeLauncherService();
-
-  static const String _youtubePackage = 'com.google.android.youtube';
-
-  @override
-  Future<void> openShortcut(ShortcutEntry entry) async {
-    try {
-      final AndroidIntent intent = AndroidIntent(
-        action: 'action_view',
-        data: entry.canonicalUrl,
-        package: _youtubePackage,
-        flags: <int>[
-          Flag.FLAG_ACTIVITY_NEW_TASK,
-          Flag.FLAG_ACTIVITY_CLEAR_TASK,
-        ],
-      );
-      await intent.launch();
-    } catch (_) {
-      throw const YoutubeLaunchException(
-        'The YouTube app could not be opened. Check that it is installed and enabled on this device.',
-      );
-    }
-  }
-}
 
 class YoutubeUrlFormatter {
   const YoutubeUrlFormatter();
@@ -176,6 +25,8 @@ class YoutubeUrlFormatter {
       urlInput: urlInput,
       existingId: existingEntry.id,
       existingCreatedAtIso: existingEntry.createdAtIso,
+      existingLastLaunchedAtIso: existingEntry.lastLaunchedAtIso,
+      existingLaunchCount: existingEntry.launchCount,
     );
   }
 
@@ -196,6 +47,8 @@ class YoutubeUrlFormatter {
     required String urlInput,
     String? existingId,
     String? existingCreatedAtIso,
+    String? existingLastLaunchedAtIso,
+    int existingLaunchCount = 0,
   }) {
     final String trimmedName = nameInput.trim();
     if (trimmedName.isEmpty) {
@@ -225,6 +78,8 @@ class YoutubeUrlFormatter {
       targetType: parsedTarget.targetType,
       createdAtIso: existingCreatedAtIso ?? nowIso,
       updatedAtIso: nowIso,
+      lastLaunchedAtIso: existingLastLaunchedAtIso,
+      launchCount: existingLaunchCount,
     );
   }
 

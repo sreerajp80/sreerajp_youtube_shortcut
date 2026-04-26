@@ -25,6 +25,25 @@ class PermissionsScreen extends StatelessWidget {
       details:
           'Declares app-lookup capability for matching text processors. This is a manifest declaration, not a runtime permission.',
     ),
+    _PermissionEntry(
+      title: 'Share-target intent filter',
+      scope: 'MainActivity ACTION_SEND with text/plain',
+      details:
+          'Lets the app appear in the Android share sheet so a YouTube link shared from another app can pre-fill the Add Shortcut form. Only the shared text is read; no internet, storage, or runtime permission is requested.',
+    ),
+    _PermissionEntry(
+      title: 'Clipboard read on Add Shortcut screen',
+      scope: 'Clipboard.getData(text/plain) when opening the Add Shortcut form',
+      details:
+          'When the Add Shortcut screen opens for a new shortcut, the app reads the system clipboard once to offer a one-tap paste if it contains a YouTube link. The suggestion is dismissable and never sent off-device. No manifest permission is required, but Android 12 and newer show a brief system message when an app reads the clipboard.',
+    ),
+    _PermissionEntry(
+      title: 'Backup & Restore via system file picker',
+      scope:
+          'ACTION_CREATE_DOCUMENT and ACTION_OPEN_DOCUMENT (Storage Access Framework)',
+      details:
+          'When you export or import a shortcut backup from Settings, the app launches the Android system file picker. You pick the destination or source file yourself, and Android grants the app one-time access to that single file. No storage permission is requested in the manifest, the app cannot browse other files, and no data leaves the device.',
+    ),
   ];
 
   @override

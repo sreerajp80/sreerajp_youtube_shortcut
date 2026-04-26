@@ -6,9 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/about_constants.dart';
 import 'src/app_shell.dart';
+import 'src/backup_service.dart';
+import 'src/share_intent_service.dart';
 import 'src/shortcut_models.dart';
-import 'src/shortcut_services.dart';
+import 'src/shortcut_repository.dart';
 import 'src/shortcut_store.dart';
+import 'src/youtube_launcher_service.dart';
+import 'src/youtube_url_formatter.dart';
 
 const String _authorLabel = String.fromEnvironment(
   'APP_AUTHOR',
@@ -35,6 +39,8 @@ Future<void> main() async {
       repository: SharedPreferencesShortcutRepository(preferences),
       formatter: const YoutubeUrlFormatter(),
       launcher: const YoutubeLauncherService(),
+      backupService: const ShortcutBackupService(),
+      backupGateway: AndroidBackupFileGateway(),
     );
 
     await store.load();
@@ -50,7 +56,13 @@ Future<void> main() async {
       aiUsed: _aiUsedLabel,
     );
 
-    runApp(ShortcutApp(store: store, aboutInfo: aboutInfo));
+    runApp(
+      ShortcutApp(
+        store: store,
+        aboutInfo: aboutInfo,
+        sharedTextSource: AndroidSharedTextSource(),
+      ),
+    );
   } catch (error, stackTrace) {
     debugPrint('Bootstrap failure: $error');
     debugPrintStack(stackTrace: stackTrace);

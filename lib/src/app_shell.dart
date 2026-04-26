@@ -4,14 +4,21 @@ import 'package:provider/provider.dart';
 import 'about_constants.dart';
 import 'screens/fatal_error_screen.dart';
 import 'screens/home_screen.dart';
+import 'share_intent_service.dart';
 import 'shortcut_models.dart';
 import 'shortcut_store.dart';
 
 class ShortcutApp extends StatelessWidget {
-  const ShortcutApp({super.key, required this.store, required this.aboutInfo});
+  const ShortcutApp({
+    super.key,
+    required this.store,
+    required this.aboutInfo,
+    this.sharedTextSource = const NoOpSharedTextSource(),
+  });
 
   final ShortcutStore store;
   final AboutInfo aboutInfo;
+  final SharedTextSource sharedTextSource;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +29,7 @@ class ShortcutApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<ShortcutStore>.value(value: store),
         Provider<AboutInfo>.value(value: aboutInfo),
+        Provider<SharedTextSource>.value(value: sharedTextSource),
       ],
       child: Consumer<ShortcutStore>(
         builder: (BuildContext context, ShortcutStore store, Widget? child) {
@@ -49,7 +57,7 @@ class ShortcutApp extends StatelessWidget {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: isDark
-          ? const Color(0xFF16110F)
+          ? const Color(0xFF0A0E10)
           : const Color(0xFFFFF8F3),
       textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme
           .apply(
@@ -65,34 +73,37 @@ class ShortcutApp extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
       ),
       cardTheme: CardThemeData(
-        color: isDark ? const Color(0xFF251D19) : Colors.white,
+        color: isDark ? const Color(0xFF12181A) : Colors.white,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(
-            color: isDark ? const Color(0xFF3B2E28) : const Color(0xFFF1DED3),
+            color: isDark ? const Color(0xFF1F2A2E) : const Color(0xFFF1DED3),
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF2A211D) : Colors.white,
+        fillColor: isDark ? const Color(0xFF161D20) : Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(
-            color: isDark ? const Color(0xFF4B3A33) : const Color(0xFFE4D4CB),
+            color: isDark ? const Color(0xFF253238) : const Color(0xFFE4D4CB),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(
-            color: isDark ? const Color(0xFF4B3A33) : const Color(0xFFE4D4CB),
+            color: isDark ? const Color(0xFF253238) : const Color(0xFFE4D4CB),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF2DD4BF) : colorScheme.primary,
+            width: 1.5,
+          ),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
