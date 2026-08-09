@@ -10,7 +10,7 @@ Use this document to describe the current system design of the Flutter app.
   - `SP YT Shortcuts`
   - `YT Quick Open`
 - Repository type: `application`
-- Framework: `Flutter 3.41.6`
+- Framework: `Flutter 3.44.8`
 - Engineering standard profiles in force:
   - `Core Baseline`
 - Platforms:
@@ -45,7 +45,7 @@ Use this document to describe the current system design of the Flutter app.
 
 ## 3. Architecture Summary
 
-The app is a small Android-only Flutter 3.41.6 application using a Tier 1 layer-first structure.
+The app is a small Android-only Flutter 3.44.8 application using a Tier 1 layer-first structure.
 The user enters a shortcut name and a YouTube URL on the Add Shortcut screen. A formatter service
 validates the host and path, normalizes supported YouTube links into a canonical HTTPS YouTube
 URI, and produces an immutable `ShortcutEntry`. Entries are persisted locally as JSON in

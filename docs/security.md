@@ -10,7 +10,7 @@ If the app is not security-sensitive, keep this file short and document that dec
 ## 1. Security Scope
 
 - App: `SreerajP YouTube Shortcuts`
-- Framework: `Flutter 3.41.6`
+- Framework: `Flutter 3.44.8`
 - Data sensitivity level: `low`
 - Engineering standard profiles in force:
   - `Core Baseline`

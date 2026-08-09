@@ -9,22 +9,18 @@ import 'youtube_url_formatter.dart';
 
 class ShortcutStore extends ChangeNotifier {
   ShortcutStore({
-    required ShortcutRepository repository,
-    required YoutubeUrlFormatter formatter,
-    required YoutubeLauncher launcher,
-    ShortcutBackupService backupService = const ShortcutBackupService(),
-    BackupFileGateway backupGateway = const NoOpBackupFileGateway(),
-  }) : _repository = repository,
-       _formatter = formatter,
-       _launcher = launcher,
-       _backupService = backupService,
-       _backupGateway = backupGateway;
+    required this.repository,
+    required this.formatter,
+    required this.launcher,
+    this.backupService = const ShortcutBackupService(),
+    this.backupGateway = const NoOpBackupFileGateway(),
+  });
 
-  final ShortcutRepository _repository;
-  final YoutubeUrlFormatter _formatter;
-  final YoutubeLauncher _launcher;
-  final ShortcutBackupService _backupService;
-  final BackupFileGateway _backupGateway;
+  final ShortcutRepository repository;
+  final YoutubeUrlFormatter formatter;
+  final YoutubeLauncher launcher;
+  final ShortcutBackupService backupService;
+  final BackupFileGateway backupGateway;
 
   List<ShortcutEntry> _entries = const <ShortcutEntry>[];
   bool _isLoading = false;
@@ -32,19 +28,22 @@ class ShortcutStore extends ChangeNotifier {
   AppThemePreference _themePreference = AppThemePreference.system;
   AppLayoutPreference _layoutPreference = AppLayoutPreference.grid;
   ShortcutSortPreference _sortPreference = ShortcutSortPreference.manual;
+  bool _favoritesFirst = false;
 
   List<ShortcutEntry> get entries => List<ShortcutEntry>.unmodifiable(_entries);
-  List<ShortcutEntry> get entriesSorted =>
-      List<ShortcutEntry>.unmodifiable(_applySort(_entries, _sortPreference));
+  List<ShortcutEntry> get entriesSorted => List<ShortcutEntry>.unmodifiable(
+        _applySort(_entries, _sortPreference, _favoritesFirst),
+      );
   bool get isLoading => _isLoading;
   String? get launchingShortcutId => _launchingShortcutId;
   AppThemePreference get themePreference => _themePreference;
   AppLayoutPreference get layoutPreference => _layoutPreference;
   ShortcutSortPreference get sortPreference => _sortPreference;
+  bool get favoritesFirst => _favoritesFirst;
 
   String? fullUrlPreviewForInput(String urlInput) {
     try {
-      return _formatter.buildDisplayUrlPreview(urlInput);
+      return formatter.buildDisplayUrlPreview(urlInput);
     } on ShortcutValidationException {
       return null;
     }
@@ -55,18 +54,21 @@ class ShortcutStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final List<ShortcutEntry> loadedEntries = await _repository
+      final List<ShortcutEntry> loadedEntries = await repository
           .loadShortcuts();
-      final AppThemePreference loadedThemePreference = await _repository
+      final AppThemePreference loadedThemePreference = await repository
           .loadThemePreference();
-      final AppLayoutPreference loadedLayoutPreference = await _repository
+      final AppLayoutPreference loadedLayoutPreference = await repository
           .loadLayoutPreference();
-      final ShortcutSortPreference loadedSortPreference = await _repository
+      final ShortcutSortPreference loadedSortPreference = await repository
           .loadSortPreference();
+      final bool loadedFavoritesFirst = await repository
+          .loadFavoritesFirstPreference();
       _entries = loadedEntries;
       _themePreference = loadedThemePreference;
       _layoutPreference = loadedLayoutPreference;
       _sortPreference = loadedSortPreference;
+      _favoritesFirst = loadedFavoritesFirst;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -78,7 +80,7 @@ class ShortcutStore extends ChangeNotifier {
       return;
     }
 
-    await _repository.saveLayoutPreference(preference);
+    await repository.saveLayoutPreference(preference);
     _layoutPreference = preference;
     notifyListeners();
   }
@@ -88,7 +90,7 @@ class ShortcutStore extends ChangeNotifier {
       return;
     }
 
-    await _repository.saveThemePreference(preference);
+    await repository.saveThemePreference(preference);
     _themePreference = preference;
     notifyListeners();
   }
@@ -98,16 +100,45 @@ class ShortcutStore extends ChangeNotifier {
       return;
     }
 
-    await _repository.saveSortPreference(preference);
+    await repository.saveSortPreference(preference);
     _sortPreference = preference;
+    notifyListeners();
+  }
+
+  Future<void> setFavoritesFirst(bool favoritesFirst) async {
+    if (_favoritesFirst == favoritesFirst) {
+      return;
+    }
+
+    await repository.saveFavoritesFirstPreference(favoritesFirst);
+    _favoritesFirst = favoritesFirst;
+    notifyListeners();
+  }
+
+  Future<void> toggleFavorite(String id) async {
+    final int index = _entries.indexWhere((ShortcutEntry e) => e.id == id);
+    if (index < 0) return;
+
+    final ShortcutEntry existing = _entries[index];
+    final ShortcutEntry updated = existing.copyWith(
+      isFavorite: !existing.isFavorite,
+      updatedAtIso: DateTime.now().toUtc().toIso8601String(),
+    );
+
+    final List<ShortcutEntry> next = List<ShortcutEntry>.from(_entries);
+    next[index] = updated;
+
+    await repository.saveShortcuts(next);
+    _entries = next;
     notifyListeners();
   }
 
   static List<ShortcutEntry> _applySort(
     List<ShortcutEntry> entries,
     ShortcutSortPreference preference,
+    bool favoritesFirst,
   ) {
-    if (preference == ShortcutSortPreference.manual || entries.length < 2) {
+    if (entries.length < 2) {
       return entries;
     }
 
@@ -123,6 +154,10 @@ class ShortcutStore extends ChangeNotifier {
     ) {
       final ShortcutEntry x = a.value;
       final ShortcutEntry y = b.value;
+
+      if (favoritesFirst && x.isFavorite != y.isFavorite) {
+        return x.isFavorite ? -1 : 1;
+      }
 
       switch (preference) {
         case ShortcutSortPreference.manual:
@@ -167,10 +202,14 @@ class ShortcutStore extends ChangeNotifier {
   Future<void> addShortcut({
     required String nameInput,
     required String urlInput,
+    List<String> tags = const <String>[],
+    bool isFavorite = false,
   }) async {
-    final ShortcutEntry newEntry = _formatter.createEntry(
+    final ShortcutEntry newEntry = formatter.createEntry(
       nameInput: nameInput,
       urlInput: urlInput,
+      tags: tags,
+      isFavorite: isFavorite,
     );
 
     _throwIfDuplicateName(normalizedName: newEntry.name.trim().toLowerCase());
@@ -180,7 +219,7 @@ class ShortcutStore extends ChangeNotifier {
       ..._entries,
     ];
 
-    await _repository.saveShortcuts(updatedEntries);
+    await repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
     notifyListeners();
   }
@@ -189,6 +228,8 @@ class ShortcutStore extends ChangeNotifier {
     required String id,
     required String nameInput,
     required String urlInput,
+    List<String>? tags,
+    bool? isFavorite,
   }) async {
     final ShortcutEntry existingEntry = _entries.firstWhere(
       (ShortcutEntry entry) => entry.id == id,
@@ -197,10 +238,12 @@ class ShortcutStore extends ChangeNotifier {
       ),
     );
 
-    final ShortcutEntry updatedEntry = _formatter.updateEntry(
+    final ShortcutEntry updatedEntry = formatter.updateEntry(
       existingEntry: existingEntry,
       nameInput: nameInput,
       urlInput: urlInput,
+      tags: tags,
+      isFavorite: isFavorite,
     );
 
     _throwIfDuplicateName(
@@ -212,7 +255,7 @@ class ShortcutStore extends ChangeNotifier {
         .map((ShortcutEntry entry) => entry.id == id ? updatedEntry : entry)
         .toList(growable: false);
 
-    await _repository.saveShortcuts(updatedEntries);
+    await repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
     notifyListeners();
   }
@@ -222,7 +265,7 @@ class ShortcutStore extends ChangeNotifier {
         .where((ShortcutEntry entry) => entry.id != id)
         .toList(growable: false);
 
-    await _repository.saveShortcuts(updatedEntries);
+    await repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
     notifyListeners();
   }
@@ -241,13 +284,13 @@ class ShortcutStore extends ChangeNotifier {
       return;
     }
 
-    await _repository.saveShortcuts(updatedEntries);
+    await repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
     notifyListeners();
   }
 
   Future<void> clearAll() async {
-    await _repository.saveShortcuts(const <ShortcutEntry>[]);
+    await repository.saveShortcuts(const <ShortcutEntry>[]);
     _entries = const <ShortcutEntry>[];
     notifyListeners();
   }
@@ -274,7 +317,7 @@ class ShortcutStore extends ChangeNotifier {
     final ShortcutEntry movedEntry = updatedEntries.removeAt(oldIndex);
     updatedEntries.insert(targetIndex, movedEntry);
 
-    await _repository.saveShortcuts(updatedEntries);
+    await repository.saveShortcuts(updatedEntries);
     _entries = updatedEntries;
     notifyListeners();
   }
@@ -287,13 +330,13 @@ class ShortcutStore extends ChangeNotifier {
         : List<ShortcutEntry>.unmodifiable(entriesOverride);
 
     final DateTime now = DateTime.now().toUtc();
-    final String contents = _backupService.encode(
+    final String contents = backupService.encode(
       entries: entriesToExport,
       exportedAtUtc: now,
     );
-    final String suggestedName = _backupService.suggestedFileName(now);
+    final String suggestedName = backupService.suggestedFileName(now);
 
-    final String? destination = await _backupGateway
+    final String? destination = await backupGateway
         .writeBackupToUserChosenLocation(
           suggestedFileName: suggestedName,
           contents: contents,
@@ -312,13 +355,13 @@ class ShortcutStore extends ChangeNotifier {
   Future<BackupImportOutcome> importShortcutsFromFile({
     required BackupImportMode mode,
   }) async {
-    final BackupFileReadResult? fileResult = await _backupGateway
+    final BackupFileReadResult? fileResult = await backupGateway
         .readBackupFromUserChosenLocation();
     if (fileResult == null) {
       return const BackupImportCancelled();
     }
 
-    final List<ShortcutEntry> incomingEntries = _backupService.decode(
+    final List<ShortcutEntry> incomingEntries = backupService.decode(
       fileResult.contents,
     );
 
@@ -349,7 +392,7 @@ class ShortcutStore extends ChangeNotifier {
         break;
     }
 
-    await _repository.saveShortcuts(nextEntries);
+    await repository.saveShortcuts(nextEntries);
     _entries = nextEntries;
     notifyListeners();
 
@@ -367,7 +410,7 @@ class ShortcutStore extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _launcher.openShortcut(entry);
+      await launcher.openShortcut(entry);
       await _recordSuccessfulLaunch(entry.id);
     } finally {
       _launchingShortcutId = null;
@@ -393,7 +436,7 @@ class ShortcutStore extends ChangeNotifier {
     next[index] = updated;
 
     try {
-      await _repository.saveShortcuts(next);
+      await repository.saveShortcuts(next);
       _entries = next;
     } on ShortcutStorageException {
       // Best-effort telemetry: a failed write must not surface as a launch

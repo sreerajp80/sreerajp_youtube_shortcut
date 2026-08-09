@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/config/app_config.dart';
 import '../about_constants.dart';
-import '../shortcut_models.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final AboutInfo aboutInfo = context.read<AboutInfo>();
+    final AppConfig appConfig = context.watch<AppConfig>();
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
@@ -31,7 +31,7 @@ class AboutScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  AboutConstants.appTitle,
+                  appConfig.appName,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -39,7 +39,7 @@ class AboutScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  AboutConstants.appDescription,
+                  appConfig.description,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFFFFE7DD),
                     height: 1.45,
@@ -49,16 +49,14 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          _InfoRow(label: AboutConstants.authorLabel, value: aboutInfo.author),
           _InfoRow(
             label: AboutConstants.versionLabel,
-            value: '${aboutInfo.version}+${aboutInfo.buildNumber}',
+            value: '${appConfig.version}+${appConfig.build}',
           ),
-          _InfoRow(
-            label: AboutConstants.buildDateLabel,
-            value: aboutInfo.buildDate,
-          ),
-          _InfoRow(label: AboutConstants.aiUsedLabel, value: aboutInfo.aiUsed),
+          for (final MapEntry<String, String> entry
+              in appConfig.details.entries)
+            if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
+              _InfoRow(label: entry.key, value: entry.value),
           const SizedBox(height: 18),
           Card(
             child: Padding(

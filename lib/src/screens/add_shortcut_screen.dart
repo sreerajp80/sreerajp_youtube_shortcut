@@ -20,9 +20,20 @@ class AddShortcutScreen extends StatefulWidget {
 class _AddShortcutScreenState extends State<AddShortcutScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _tagController = TextEditingController();
   bool _isSaving = false;
+  bool _isFavorite = false;
+  List<String> _tags = <String>[];
   String? _clipboardSuggestion;
   bool _clipboardSuggestionResolved = false;
+
+  static const List<String> _suggestedTags = <String>[
+    '#Tech',
+    '#Music',
+    '#News',
+    '#Education',
+    '#Personal',
+  ];
 
   bool get _isEditing => widget.initialEntry != null;
 
@@ -33,6 +44,8 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     if (initialEntry != null) {
       _nameController.text = initialEntry.name;
       _urlController.text = initialEntry.sourceUrl;
+      _isFavorite = initialEntry.isFavorite;
+      _tags = List<String>.from(initialEntry.tags);
       return;
     }
 
@@ -53,6 +66,7 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     _urlController.removeListener(_handleUrlChangedForSuggestion);
     _nameController.dispose();
     _urlController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
@@ -125,6 +139,36 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     });
   }
 
+  void _addTag(String rawTag) {
+    String formatted = rawTag.trim();
+    if (formatted.isEmpty) return;
+    if (!formatted.startsWith('#')) {
+      formatted = '#$formatted';
+    }
+    if (!_tags.contains(formatted)) {
+      setState(() {
+        _tags = <String>[..._tags, formatted];
+        _tagController.clear();
+      });
+    } else {
+      _tagController.clear();
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() {
+      _tags = _tags.where((String t) => t != tag).toList();
+    });
+  }
+
+  void _toggleSuggestedTag(String tag) {
+    if (_tags.contains(tag)) {
+      _removeTag(tag);
+    } else {
+      _addTag(tag);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -133,8 +177,8 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
         ? 'Update this shortcut'
         : 'Create a quick-launch card';
     final String heroDescription = _isEditing
-        ? 'Change the shortcut name or handle. The app will re-validate and normalize the destination before saving.'
-        : 'Enter a channel handle or paste a YouTube URL. The app can auto-build a live link and normalize it for direct handoff to YouTube.';
+        ? 'Change the shortcut name, handle, tags, or favorite status.'
+        : 'Enter a channel handle or paste a YouTube URL. Add custom tags to categorize and mark as favorite to pin to top.';
     final String actionLabel = _isEditing ? 'Save changes' : 'Save shortcut';
     final String savingLabel = _isEditing ? 'Updating...' : 'Saving...';
 
@@ -186,7 +230,7 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _urlController,
-            textInputAction: TextInputAction.done,
+            textInputAction: TextInputAction.next,
             keyboardType: TextInputType.text,
             minLines: 1,
             maxLines: 1,
@@ -194,12 +238,6 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
               labelText: 'Channel handle or YouTube URL',
               hintText: '@MyChannel or https://www.youtube.com/@MyChannel/live',
             ),
-            onSubmitted: (_) {
-              if (_isSaving) {
-                return;
-              }
-              _saveShortcut();
-            },
           ),
           const SizedBox(height: 8),
           ValueListenableBuilder<TextEditingValue>(
@@ -229,19 +267,103 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
               onDismiss: _dismissClipboardSuggestion,
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
+          // Favorite Switch Tile
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: SwitchListTile(
+                value: _isFavorite,
+                onChanged: (bool value) {
+                  setState(() => _isFavorite = value);
+                },
+                secondary: Icon(
+                  _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: _isFavorite
+                      ? Colors.amber
+                      : theme.colorScheme.onSurface,
+                ),
+                title: const Text(
+                  'Pin as Favorite',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Keep this shortcut pinned to the top of your list',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Custom Tags Section
+          Text(
+            'Custom Tags',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _tagController,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: 'Add tag',
+                    hintText: 'e.g. #Tech or Personal',
+                  ),
+                  onSubmitted: (String val) => _addTag(val),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'Add tag',
+                icon: const Icon(Icons.add_rounded),
+                onPressed: () => _addTag(_tagController.text),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Selected Tags Chips
+          if (_tags.isNotEmpty) ...<Widget>[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _tags.map((String tag) {
+                return Chip(
+                  label: Text(tag),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 18),
+                  onDeleted: () => _removeTag(tag),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+          ],
+          // Suggested Tags
+          Text(
+            'Suggested Tags',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: const <Widget>[
-              Chip(label: Text('@handle')),
-              Chip(label: Text('watch')),
-              Chip(label: Text('youtu.be')),
-              Chip(label: Text('live')),
-              Chip(label: Text('shorts')),
-              Chip(label: Text('playlist')),
-              Chip(label: Text('channel')),
-            ],
+            children: _suggestedTags.map((String tag) {
+              final bool isSelected = _tags.contains(tag);
+              return FilterChip(
+                label: Text(tag),
+                selected: isSelected,
+                onSelected: (_) => _toggleSuggestedTag(tag),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
@@ -278,11 +400,15 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
           id: widget.initialEntry!.id,
           nameInput: _nameController.text,
           urlInput: _urlController.text,
+          tags: _tags,
+          isFavorite: _isFavorite,
         );
       } else {
         await context.read<ShortcutStore>().addShortcut(
           nameInput: _nameController.text,
           urlInput: _urlController.text,
+          tags: _tags,
+          isFavorite: _isFavorite,
         );
       }
 

@@ -67,8 +67,8 @@ Unsupported or malformed links are rejected with user-safe validation messages.
 
 ## Tech Stack
 
-- Flutter `3.41.6`
-- Dart SDK `^3.11.4`
+- Flutter `3.44.8`
+- Dart SDK `^3.12.2`
 - Android minimum SDK `24`
 - State management: `provider` + `ChangeNotifier`
 - Storage: `shared_preferences`
@@ -121,7 +121,7 @@ Note:
 
 ### Prerequisites
 
-- Flutter `3.41.6`
+- Flutter `3.44.8`
 - Android SDK (API 24+ target support)
 - Java 17 (for Android Gradle build)
 

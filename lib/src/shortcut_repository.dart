@@ -21,6 +21,10 @@ abstract class ShortcutRepository {
   Future<ShortcutSortPreference> loadSortPreference();
 
   Future<void> saveSortPreference(ShortcutSortPreference preference);
+
+  Future<bool> loadFavoritesFirstPreference();
+
+  Future<void> saveFavoritesFirstPreference(bool favoritesFirst);
 }
 
 class SharedPreferencesShortcutRepository implements ShortcutRepository {
@@ -140,6 +144,26 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
       );
     }
   }
+
+  static const String _favoritesFirstStorageKey = 'app_favorites_first_v1';
+
+  @override
+  Future<bool> loadFavoritesFirstPreference() async {
+    return _preferences.getBool(_favoritesFirstStorageKey) ?? false;
+  }
+
+  @override
+  Future<void> saveFavoritesFirstPreference(bool favoritesFirst) async {
+    final bool saved = await _preferences.setBool(
+      _favoritesFirstStorageKey,
+      favoritesFirst,
+    );
+    if (!saved) {
+      throw const ShortcutStorageException(
+        'Favorites-first preference could not be saved locally.',
+      );
+    }
+  }
 }
 
 class MemoryShortcutRepository implements ShortcutRepository {
@@ -152,6 +176,7 @@ class MemoryShortcutRepository implements ShortcutRepository {
   AppThemePreference _themePreference = AppThemePreference.system;
   AppLayoutPreference _layoutPreference = AppLayoutPreference.grid;
   ShortcutSortPreference _sortPreference = ShortcutSortPreference.manual;
+  bool _favoritesFirst = false;
 
   @override
   Future<List<ShortcutEntry>> loadShortcuts() async {
@@ -191,5 +216,15 @@ class MemoryShortcutRepository implements ShortcutRepository {
   @override
   Future<void> saveSortPreference(ShortcutSortPreference preference) async {
     _sortPreference = preference;
+  }
+
+  @override
+  Future<bool> loadFavoritesFirstPreference() async {
+    return _favoritesFirst;
+  }
+
+  @override
+  Future<void> saveFavoritesFirstPreference(bool favoritesFirst) async {
+    _favoritesFirst = favoritesFirst;
   }
 }

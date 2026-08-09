@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/config/app_config.dart';
+import 'core/config/config_service.dart';
 import 'src/about_constants.dart';
 import 'src/app_shell.dart';
 import 'src/backup_service.dart';
@@ -35,6 +37,9 @@ Future<void> main() async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final PackageInfo packageInfo = await PackageInfo.fromPlatform();
     final _BuildMetadata buildMetadata = await _readBuildMetadataFromPlatform();
+    final AppConfig appConfig = await ConfigService().loadAndVerify(
+      packageInfo: packageInfo,
+    );
     final ShortcutStore store = ShortcutStore(
       repository: SharedPreferencesShortcutRepository(preferences),
       formatter: const YoutubeUrlFormatter(),
@@ -59,6 +64,7 @@ Future<void> main() async {
     runApp(
       ShortcutApp(
         store: store,
+        appConfig: appConfig,
         aboutInfo: aboutInfo,
         sharedTextSource: AndroidSharedTextSource(),
       ),

@@ -11,7 +11,7 @@ scope clearly.
 ## 1. Release Scope
 
 - App: `SreerajP YouTube Shortcuts`
-- Framework: `Flutter 3.41.6`
+- Framework: `Flutter 3.44.8`
 - Release profile: `internal beta`
 - Supported release platforms:
   - `Android`
@@ -177,7 +177,7 @@ Complete these items before every release.
 
 ### Code And Quality
 
-- [ ] Local Flutter SDK is `3.41.6`.
+- [ ] Local Flutter SDK is `3.44.8`.
 - [ ] `flutter pub get` completed successfully.
 - [ ] `dart format --output=none --set-exit-if-changed .` passed.
 - [ ] `flutter analyze` passed with zero warnings.
@@ -223,7 +223,7 @@ Complete these items before every release.
 
 ## 9. Android Release Steps
 
-1. Verify the local SDK is Flutter `3.41.6` with `flutter --version`.
+1. Verify the local SDK is Flutter `3.44.8` with `flutter --version`.
 2. If git is active, pull the intended release commit and verify the tree is clean.
 3. Confirm the version in `pubspec.yaml`.
 4. Set the release metadata value for the AI-used label (build date is auto-generated at build time).

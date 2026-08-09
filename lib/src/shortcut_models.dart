@@ -101,6 +101,8 @@ class ShortcutEntry {
     required this.updatedAtIso,
     this.lastLaunchedAtIso,
     this.launchCount = 0,
+    this.isFavorite = false,
+    this.tags = const <String>[],
   });
 
   final String id;
@@ -112,6 +114,8 @@ class ShortcutEntry {
   final String updatedAtIso;
   final String? lastLaunchedAtIso;
   final int launchCount;
+  final bool isFavorite;
+  final List<String> tags;
 
   DateTime get createdAt => DateTime.parse(createdAtIso);
   DateTime get updatedAt => DateTime.parse(updatedAtIso);
@@ -128,6 +132,8 @@ class ShortcutEntry {
     String? updatedAtIso,
     String? lastLaunchedAtIso,
     int? launchCount,
+    bool? isFavorite,
+    List<String>? tags,
   }) {
     return ShortcutEntry(
       id: id ?? this.id,
@@ -139,6 +145,8 @@ class ShortcutEntry {
       updatedAtIso: updatedAtIso ?? this.updatedAtIso,
       lastLaunchedAtIso: lastLaunchedAtIso ?? this.lastLaunchedAtIso,
       launchCount: launchCount ?? this.launchCount,
+      isFavorite: isFavorite ?? this.isFavorite,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -153,6 +161,8 @@ class ShortcutEntry {
       'updatedAtIso': updatedAtIso,
       if (lastLaunchedAtIso != null) 'lastLaunchedAtIso': lastLaunchedAtIso,
       if (launchCount != 0) 'launchCount': launchCount,
+      if (isFavorite) 'isFavorite': isFavorite,
+      if (tags.isNotEmpty) 'tags': tags,
     };
   }
 
@@ -161,6 +171,12 @@ class ShortcutEntry {
     final int parsedLaunchCount = launchCountRaw is int
         ? launchCountRaw
         : (launchCountRaw is num ? launchCountRaw.toInt() : 0);
+
+    final bool parsedIsFavorite = json['isFavorite'] as bool? ?? false;
+    final List<dynamic>? rawTags = json['tags'] as List<dynamic>?;
+    final List<String> parsedTags = rawTags != null
+        ? rawTags.map((dynamic e) => e.toString()).toList(growable: false)
+        : const <String>[];
 
     return ShortcutEntry(
       id: json['id'] as String,
@@ -175,6 +191,8 @@ class ShortcutEntry {
       updatedAtIso: json['updatedAtIso'] as String,
       lastLaunchedAtIso: json['lastLaunchedAtIso'] as String?,
       launchCount: parsedLaunchCount < 0 ? 0 : parsedLaunchCount,
+      isFavorite: parsedIsFavorite,
+      tags: parsedTags,
     );
   }
 }

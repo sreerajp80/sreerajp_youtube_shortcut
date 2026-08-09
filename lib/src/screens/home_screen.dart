@@ -30,11 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   final Set<ShortcutTargetType> _typeFilters = <ShortcutTargetType>{};
+  final Set<String> _tagFilters = <String>{};
 
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
 
   bool get _isFilterActive =>
-      _searchQuery.trim().isNotEmpty || _typeFilters.isNotEmpty;
+      _searchQuery.trim().isNotEmpty ||
+      _typeFilters.isNotEmpty ||
+      _tagFilters.isNotEmpty;
 
   @override
   void initState() {
@@ -62,8 +65,21 @@ class _HomeScreenState extends State<HomeScreen> {
               !_typeFilters.contains(entry.targetType)) {
             return false;
           }
-          if (query.isNotEmpty && !entry.name.toLowerCase().contains(query)) {
+          if (_tagFilters.isNotEmpty &&
+              !_tagFilters.any((String tag) => entry.tags.contains(tag))) {
             return false;
+          }
+          if (query.isNotEmpty) {
+            final bool nameMatch = entry.name.toLowerCase().contains(query);
+            final bool tagMatch = entry.tags.any(
+              (String t) => t.toLowerCase().contains(query),
+            );
+            final bool urlMatch = entry.canonicalUrl
+                .toLowerCase()
+                .contains(query);
+            if (!nameMatch && !tagMatch && !urlMatch) {
+              return false;
+            }
           }
           return true;
         })
@@ -85,6 +101,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (!_typeFilters.remove(type)) {
         _typeFilters.add(type);
+      }
+    });
+  }
+
+  void _toggleTagFilter(String tag) {
+    setState(() {
+      if (!_tagFilters.remove(tag)) {
+        _tagFilters.add(tag);
       }
     });
   }
@@ -296,9 +320,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 searchController: _searchController,
                 searchQuery: _searchQuery,
                 typeFilters: _typeFilters,
+                tagFilters: _tagFilters,
+                availableTags: () {
+                  final Set<String> tagsSet = <String>{};
+                  for (final ShortcutEntry entry in store.entries) {
+                    tagsSet.addAll(entry.tags);
+                  }
+                  final List<String> list = tagsSet.toList()..sort();
+                  return list;
+                }(),
                 onSearchChanged: _onSearchChanged,
                 onClearSearch: _clearSearch,
                 onToggleType: _toggleTypeFilter,
+                onToggleTagFilter: _toggleTagFilter,
               ),
             ],
             const SizedBox(height: 16),
@@ -344,6 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _searchQuery = '';
       _typeFilters.clear();
+      _tagFilters.clear();
     });
   }
 
@@ -353,6 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final bool sortIsManual =
         store.sortPreference == ShortcutSortPreference.manual;
+    final ThemeData theme = Theme.of(context);
 
     return AppBar(
       title: const Text('YT Shortcuts'),
@@ -369,22 +405,34 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () => _toggleLayout(context, store.layoutPreference),
           ),
-          PopupMenuButton<ShortcutSortPreference>(
+          PopupMenuButton<dynamic>(
             tooltip: 'Sort shortcuts',
-            icon: const Icon(Icons.sort_rounded),
-            initialValue: store.sortPreference,
-            onSelected: (ShortcutSortPreference preference) =>
-                _setSortPreference(context, preference),
-            itemBuilder: (BuildContext context) =>
-                <PopupMenuEntry<ShortcutSortPreference>>[
-                  for (final ShortcutSortPreference preference
-                      in ShortcutSortPreference.values)
-                    CheckedPopupMenuItem<ShortcutSortPreference>(
-                      value: preference,
-                      checked: store.sortPreference == preference,
-                      child: Text(preference.label),
-                    ),
-                ],
+            icon: Icon(
+              Icons.sort_rounded,
+              color: store.favoritesFirst ? theme.colorScheme.primary : null,
+            ),
+            onSelected: (dynamic value) {
+              if (value == 'toggle_favorites_first') {
+                _toggleFavoritesFirst(context, store.favoritesFirst);
+              } else if (value is ShortcutSortPreference) {
+                _setSortPreference(context, value);
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<dynamic>>[
+              CheckedPopupMenuItem<String>(
+                value: 'toggle_favorites_first',
+                checked: store.favoritesFirst,
+                child: const Text('Favorites first'),
+              ),
+              const PopupMenuDivider(),
+              for (final ShortcutSortPreference preference
+                  in ShortcutSortPreference.values)
+                CheckedPopupMenuItem<ShortcutSortPreference>(
+                  value: preference,
+                  checked: store.sortPreference == preference,
+                  child: Text(preference.label),
+                ),
+            ],
           ),
           PopupMenuButton<_HomeAction>(
             tooltip: 'Options',
@@ -415,6 +463,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _toggleFavoritesFirst(
+    BuildContext context,
+    bool currentFavoritesFirst,
+  ) async {
+    try {
+      await context
+          .read<ShortcutStore>()
+          .setFavoritesFirst(!currentFavoritesFirst);
+    } on ShortcutStorageException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
   Future<void> _setSortPreference(
@@ -1033,17 +1097,23 @@ class _ShortcutFilterBar extends StatelessWidget {
     required this.searchController,
     required this.searchQuery,
     required this.typeFilters,
+    required this.tagFilters,
+    required this.availableTags,
     required this.onSearchChanged,
     required this.onClearSearch,
     required this.onToggleType,
+    required this.onToggleTagFilter,
   });
 
   final TextEditingController searchController;
   final String searchQuery;
   final Set<ShortcutTargetType> typeFilters;
+  final Set<String> tagFilters;
+  final List<String> availableTags;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<ShortcutTargetType> onToggleType;
+  final ValueChanged<String> onToggleTagFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -1085,17 +1155,27 @@ class _ShortcutFilterBar extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ShortcutTargetType.values
-              .map((ShortcutTargetType type) {
-                return FilterChip(
-                  label: Text(type.label),
-                  selected: typeFilters.contains(type),
-                  onSelected: (_) => onToggleType(type),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                );
-              })
-              .toList(growable: false),
+          children: <Widget>[
+            ...ShortcutTargetType.values.map((ShortcutTargetType type) {
+              return FilterChip(
+                label: Text(type.label),
+                selected: typeFilters.contains(type),
+                onSelected: (_) => onToggleType(type),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }),
+            ...availableTags.map((String tag) {
+              final bool isSelected = tagFilters.contains(tag);
+              return FilterChip(
+                label: Text(tag),
+                selected: isSelected,
+                onSelected: (_) => onToggleTagFilter(tag),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }),
+          ],
         ),
       ],
     );
@@ -1448,47 +1528,76 @@ class _ShortcutCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Padding(
                           padding: const EdgeInsets.only(left: 2),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: <Color>[
-                                  typeAccent.withValues(
-                                    alpha: isDark ? 0.36 : 0.22,
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: <Widget>[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: <Color>[
+                                      typeAccent.withValues(
+                                        alpha: isDark ? 0.36 : 0.22,
+                                      ),
+                                      typeAccent.withValues(
+                                        alpha: isDark ? 0.22 : 0.12,
+                                      ),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                  typeAccent.withValues(
-                                    alpha: isDark ? 0.22 : 0.12,
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: typeAccent.withValues(
+                                      alpha: isDark ? 0.62 : 0.30,
+                                    ),
                                   ),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: typeAccent.withValues(
-                                  alpha: isDark ? 0.62 : 0.30,
+                                  boxShadow: <BoxShadow>[
+                                    BoxShadow(
+                                      color: typeAccent.withValues(
+                                        alpha: isDark ? 0.26 : 0.12,
+                                      ),
+                                      offset: const Offset(0, 2),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  entry.targetType.label,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: typeAccent,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: typeAccent.withValues(
-                                    alpha: isDark ? 0.26 : 0.12,
+                              for (final String tag in entry.tags)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
                                   ),
-                                  offset: const Offset(0, 2),
-                                  blurRadius: 6,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.tertiaryContainer
+                                        .withValues(alpha: 0.8),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme
+                                          .colorScheme
+                                          .onTertiaryContainer,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                              ],
-                            ),
-                            child: Text(
-                              entry.targetType.label,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: typeAccent,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            ],
                           ),
                         ),
                       ],
@@ -1521,6 +1630,31 @@ class _ShortcutCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!isSelectionMode && !isReorderMode)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: IconButton(
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: entry.isFavorite
+                          ? 'Unpin favorite'
+                          : 'Pin favorite',
+                      icon: Icon(
+                        entry.isFavorite
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        color: entry.isFavorite
+                            ? Colors.amber
+                            : theme.colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.45,
+                              ),
+                      ),
+                      onPressed: () {
+                        context.read<ShortcutStore>().toggleFavorite(entry.id);
+                      },
+                    ),
+                  ),
                 if (isSelected)
                   Positioned(
                     top: 8,

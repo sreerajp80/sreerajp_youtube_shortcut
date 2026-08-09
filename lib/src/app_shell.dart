@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'about_constants.dart';
+import '../core/config/app_config.dart';
 import 'screens/fatal_error_screen.dart';
+
 import 'screens/home_screen.dart';
 import 'share_intent_service.dart';
 import 'shortcut_models.dart';
@@ -12,11 +13,19 @@ class ShortcutApp extends StatelessWidget {
   const ShortcutApp({
     super.key,
     required this.store,
-    required this.aboutInfo,
+    this.appConfig = AppConfig.fallback,
+    this.aboutInfo = const AboutInfo(
+      author: 'SreerajP',
+      version: '1.3.15',
+      buildNumber: '1',
+      buildDate: '2026-08-09',
+      aiUsed: 'Google Gemini',
+    ),
     this.sharedTextSource = const NoOpSharedTextSource(),
   });
 
   final ShortcutStore store;
+  final AppConfig appConfig;
   final AboutInfo aboutInfo;
   final SharedTextSource sharedTextSource;
 
@@ -28,13 +37,15 @@ class ShortcutApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ShortcutStore>.value(value: store),
+        Provider<AppConfig>.value(value: appConfig),
         Provider<AboutInfo>.value(value: aboutInfo),
         Provider<SharedTextSource>.value(value: sharedTextSource),
       ],
       child: Consumer<ShortcutStore>(
         builder: (BuildContext context, ShortcutStore store, Widget? child) {
           return MaterialApp(
-            title: AboutConstants.appTitle,
+            title: appConfig.appName,
+
             debugShowCheckedModeBanner: false,
             theme: lightTheme,
             darkTheme: darkTheme,

@@ -349,6 +349,40 @@ void main() {
         );
       },
     );
+
+    test('favoritesFirst puts favorited entries before non-favorited entries', () async {
+      final List<ShortcutEntry> seed = <ShortcutEntry>[
+        _seedEntry(id: 'a', name: 'Alpha'),
+        _seedEntry(id: 'b', name: 'Bravo', isFavorite: true),
+        _seedEntry(id: 'c', name: 'Charlie'),
+      ];
+      final ShortcutStore store = await loadedStore(seed);
+      await store.setSortPreference(ShortcutSortPreference.alphabetical);
+      await store.setFavoritesFirst(true);
+
+      expect(
+        store.entriesSorted.map((ShortcutEntry e) => e.id).toList(),
+        <String>['b', 'a', 'c'],
+      );
+    });
+  });
+
+  test('adds and updates shortcut with custom tags and favorite flag', () async {
+    final ShortcutStore store = buildStore();
+
+    await store.addShortcut(
+      nameInput: 'Tech Channel',
+      urlInput: 'https://youtu.be/tech123',
+      tags: const <String>['#Tech', '#News'],
+      isFavorite: true,
+    );
+
+    final ShortcutEntry entry = store.entries.single;
+    expect(entry.tags, <String>['#Tech', '#News']);
+    expect(entry.isFavorite, isTrue);
+
+    await store.toggleFavorite(entry.id);
+    expect(store.entries.single.isFavorite, isFalse);
   });
 }
 
@@ -358,6 +392,8 @@ ShortcutEntry _seedEntry({
   String createdAt = '2026-01-01T00:00:00Z',
   String? lastLaunched,
   int launchCount = 0,
+  bool isFavorite = false,
+  List<String> tags = const <String>[],
 }) {
   return ShortcutEntry(
     id: id,
@@ -369,6 +405,8 @@ ShortcutEntry _seedEntry({
     updatedAtIso: createdAt,
     lastLaunchedAtIso: lastLaunched,
     launchCount: launchCount,
+    isFavorite: isFavorite,
+    tags: tags,
   );
 }
 

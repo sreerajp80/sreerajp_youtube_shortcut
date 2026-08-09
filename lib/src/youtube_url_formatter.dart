@@ -11,14 +11,23 @@ class YoutubeUrlFormatter {
   ShortcutEntry createEntry({
     required String nameInput,
     required String urlInput,
+    List<String> tags = const <String>[],
+    bool isFavorite = false,
   }) {
-    return _buildEntry(nameInput: nameInput, urlInput: urlInput);
+    return _buildEntry(
+      nameInput: nameInput,
+      urlInput: urlInput,
+      tags: tags,
+      isFavorite: isFavorite,
+    );
   }
 
   ShortcutEntry updateEntry({
     required ShortcutEntry existingEntry,
     required String nameInput,
     required String urlInput,
+    List<String>? tags,
+    bool? isFavorite,
   }) {
     return _buildEntry(
       nameInput: nameInput,
@@ -27,6 +36,8 @@ class YoutubeUrlFormatter {
       existingCreatedAtIso: existingEntry.createdAtIso,
       existingLastLaunchedAtIso: existingEntry.lastLaunchedAtIso,
       existingLaunchCount: existingEntry.launchCount,
+      tags: tags ?? existingEntry.tags,
+      isFavorite: isFavorite ?? existingEntry.isFavorite,
     );
   }
 
@@ -49,6 +60,8 @@ class YoutubeUrlFormatter {
     String? existingCreatedAtIso,
     String? existingLastLaunchedAtIso,
     int existingLaunchCount = 0,
+    List<String> tags = const <String>[],
+    bool isFavorite = false,
   }) {
     final String trimmedName = nameInput.trim();
     if (trimmedName.isEmpty) {
@@ -80,6 +93,8 @@ class YoutubeUrlFormatter {
       updatedAtIso: nowIso,
       lastLaunchedAtIso: existingLastLaunchedAtIso,
       launchCount: existingLaunchCount,
+      isFavorite: isFavorite,
+      tags: tags,
     );
   }
 
