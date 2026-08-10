@@ -45,12 +45,14 @@ Every proposed feature in this document strictly adheres to the core engineering
 ---
 
 ### Category C: Offline QR Code Utilities & Air-Gapped Handoff
-*Inspired by `sreeraj_qr_reader` and `SreerajP_CodeApp`*
+*Inspired by `sreeraj_qr_reader` and `SreerajP_CodeApp`* — **[Status: Implemented ✅]**
 
 5. **In-App Offline QR Scanner**:
-   - *Concept*: Add an offline camera scanner (or gallery image picker) to scan YouTube QR codes directly into **YT Shortcuts** without typing or pasting URLs.
+   - *Status*: **Implemented ✅**
+   - *Concept*: Add an offline camera scanner (or gallery image picker) to scan YouTube QR codes directly into **YT Shortcuts** without typing or pasting URLs. Includes receiver handoff sheet ("Shortcut Received!") with options to Save or Open in YouTube.
 
 6. **Offline QR Code Generator for Shortcuts**:
+   - *Status*: **Implemented ✅**
    - *Concept*: Generate an on-screen QR code for any saved YouTube shortcut. Another device running a QR reader can scan it to instantly open or save the shortcut without needing internet or messaging apps.
 
 ---
@@ -76,12 +78,14 @@ Every proposed feature in this document strictly adheres to the core engineering
 ---
 
 ### Category F: Privacy Lock & Encrypted Backup Vault
-*Inspired by `vault-files` and `SreerajP_Authenticator`*
+*Inspired by `vault-files` and `SreerajP_Authenticator`* — **[Status: Implemented ✅]**
 
 10. **Biometric / Local PIN Protection (`local_auth`)**:
+    - *Status*: **Implemented ✅**
     - *Concept*: An optional local security lock (fingerprint/face unlock or local PIN) to gate access to the app or specific hidden shortcut categories.
 
 11. **Password-Encrypted JSON Backup Export**:
+    - *Status*: **Implemented ✅**
     - *Concept*: Option to encrypt exported backup files using AES-256 with a user-provided passphrase, ensuring backup files stored on external SD cards or local folders remain encrypted.
 
 ---
@@ -106,12 +110,14 @@ Every proposed feature in this document strictly adheres to the core engineering
 ---
 
 ### Category I: Enhanced Visual Customization & Themes
-*Inspired by `SreerajP_Devi` and `chronotune-smart-clock`*
+*Inspired by `SreerajP_Devi` and `chronotune-smart-clock`* — **[Status: Implemented ✅]**
 
 15. **Expanded Theme System**:
+    - *Status*: **Implemented ✅**
     - *Concept*: Introduce curated dark themes such as **AMOLED Pure Black**, **Warm Sepia**, **Forest Dark**, and **Cyberpunk Neon** to complement existing Light/Dark modes.
 
 16. **Custom Card Accent Colors**:
+    - *Status*: **Implemented ✅**
     - *Concept*: Allow users to manually pick custom avatar background colors or icons for specific shortcuts to make launcher cards immediately distinct.
 
 ---
@@ -123,13 +129,13 @@ Every proposed feature in this document strictly adheres to the core engineering
 | **Custom Tags & Favorites** | **Implemented ✅** | `SreerajPContactSphere`, `sreerajp_todo` | 100% Local | Low |
 | **Android Home Widgets** | Planned | `chronotune-smart-clock`, `daily_rule_cards` | 100% Local | Medium |
 | **Launcher Dynamic Shortcuts** | Planned | `sreerajp_todo` | 100% Local | Low |
-| **Offline QR Scanner & Generator**| Planned | `sreeraj_qr_reader`, `SreerajP_CodeApp` | 100% Local | Medium |
+| **Offline QR Scanner & Generator**| **Implemented ✅** | `sreeraj_qr_reader`, `SreerajP_CodeApp` | 100% Local | Medium |
 | **Scheduled Launch Alarms** | Planned | `chronotune-smart-clock`, `Sanathana_Dharma_Clock` | 100% Local | Medium |
 | **Timestamps (`?t=...`) & Notes** | Planned | `SreerajP_Journal_Vault`, `SreerajP_LalithaSahasranamam` | 100% Local | Low |
-| **Biometric Lock & Encrypted Backup**| Planned | `vault-files`, `SreerajP_Authenticator` | 100% Local | Medium |
+| **Biometric Lock & Encrypted Backup**| **Implemented ✅** | `vault-files`, `SreerajP_Authenticator` | 100% Local | Medium |
 | **Batch Link Parser & PDF Export** | Planned | `SreerajP_TextApp`, `SreerajP_PDFApp` | 100% Local | Medium |
 | **Smart Rule Auto-Tagging** | Planned | `sms-sentry` | 100% Local | Low |
-| **AMOLED & Custom Themes** | Planned | `SreerajP_Devi`, `chronotune-smart-clock` | 100% Local | Low |
+| **AMOLED & Custom Themes** | **Implemented ✅** | `SreerajP_Devi`, `chronotune-smart-clock` | 100% Local | Low |
 
 ---
 

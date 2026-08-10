@@ -62,6 +62,52 @@ void main() {
         throwsA(isA<ShortcutBackupException>()),
       );
     });
+
+    test('round-trips encrypted export and import with valid password', () async {
+      final ShortcutStore store = _buildStore();
+      await store.addShortcut(
+        nameInput: 'Encrypted Video',
+        urlInput: 'https://youtu.be/secret123',
+        isPrivate: true,
+      );
+
+      final String encryptedRaw = service.encodeEncrypted(
+        entries: store.entries,
+        passphrase: 'MyVaultPassword123',
+        exportedAtUtc: DateTime.utc(2026, 8, 10, 12, 0),
+      );
+
+      expect(service.isEncrypted(encryptedRaw), isTrue);
+      expect(encryptedRaw, startsWith('v1:'));
+
+      final List<ShortcutEntry> decoded = service.decodeEncrypted(
+        encryptedRaw,
+        'MyVaultPassword123',
+      );
+
+      expect(decoded.length, 1);
+      expect(decoded.first.name, 'Encrypted Video');
+      expect(decoded.first.isPrivate, isTrue);
+    });
+
+    test('rejects encrypted import with wrong password', () async {
+      final ShortcutStore store = _buildStore();
+      await store.addShortcut(
+        nameInput: 'Vault Note',
+        urlInput: 'https://youtu.be/secret456',
+      );
+
+      final String encryptedRaw = service.encodeEncrypted(
+        entries: store.entries,
+        passphrase: 'CorrectPassword',
+        exportedAtUtc: DateTime.utc(2026, 8, 10, 12, 0),
+      );
+
+      expect(
+        () => service.decodeEncrypted(encryptedRaw, 'WrongPassword'),
+        throwsA(isA<ShortcutBackupException>()),
+      );
+    });
   });
 
   group('ShortcutStore backup operations', () {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/errors/app_exception.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
+import '../widgets/shortcut_qr_dialog.dart';
 import 'add_shortcut_screen.dart';
 
 class ShortcutDetailScreen extends StatelessWidget {
@@ -33,6 +34,11 @@ class ShortcutDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Shortcut details'),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Show QR Code',
+            icon: const Icon(Icons.qr_code_2_rounded),
+            onPressed: () => ShortcutQrDialog.show(context, entry),
+          ),
           IconButton(
             tooltip: entry.isFavorite ? 'Unpin favorite' : 'Pin favorite',
             icon: Icon(
@@ -74,12 +80,20 @@ class ShortcutDetailScreen extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: OutlinedButton.icon(
+                  onPressed: () => ShortcutQrDialog.show(context, entry),
+                  icon: const Icon(Icons.qr_code_2_rounded),
+                  label: const Text('QR Code'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
                   onPressed: () => _copyUrl(context, entry),
                   icon: const Icon(Icons.copy_rounded),
                   label: const Text('Copy URL'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _editEntry(context, entry),
@@ -257,8 +271,10 @@ class _DetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final Color avatarColor = _avatarColorFor(entry.id);
+    final Color? customColor = _parseColorHex(entry.customColorHex);
+    final Color avatarColor = customColor ?? _avatarColorFor(entry.id);
     final String avatarLetters = _avatarLettersFor(entry.name);
+    final IconData? customIcon = _parseIconData(entry.customIconName);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -278,15 +294,21 @@ class _DetailHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
             ),
             child: Center(
-              child: Text(
-                avatarLetters,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 22,
-                  letterSpacing: -0.2,
-                ),
-              ),
+              child: customIcon != null
+                  ? Icon(
+                      customIcon,
+                      color: Colors.white,
+                      size: 28,
+                    )
+                  : Text(
+                      avatarLetters,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 14),
@@ -595,4 +617,34 @@ String _avatarLettersFor(String name) {
     return taken.toUpperCase();
   }
   return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+Color? _parseColorHex(String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  final String clean = hex.replaceAll('#', '');
+  if (clean.length == 6) {
+    final int? val = int.tryParse('FF$clean', radix: 16);
+    if (val != null) return Color(val);
+  }
+  return null;
+}
+
+IconData? _parseIconData(String? name) {
+  if (name == null || name.isEmpty) return null;
+  const Map<String, IconData> icons = <String, IconData>{
+    'play': Icons.play_arrow_rounded,
+    'star': Icons.star_rounded,
+    'music': Icons.music_note_rounded,
+    'game': Icons.sports_esports_rounded,
+    'code': Icons.code_rounded,
+    'tv': Icons.tv_rounded,
+    'flame': Icons.local_fire_department_rounded,
+    'headphones': Icons.headphones_rounded,
+    'bookmark': Icons.bookmark_rounded,
+    'video': Icons.video_library_rounded,
+    'heart': Icons.favorite_rounded,
+    'lightning': Icons.bolt_rounded,
+    'sparkles': Icons.auto_awesome_rounded,
+  };
+  return icons[name];
 }

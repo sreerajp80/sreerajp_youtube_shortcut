@@ -384,6 +384,48 @@ void main() {
     await store.toggleFavorite(entry.id);
     expect(store.entries.single.isFavorite, isFalse);
   });
+
+  test('adds and updates shortcut with custom color and custom icon', () async {
+    final ShortcutStore store = buildStore();
+
+    await store.addShortcut(
+      nameInput: 'Customized Shortcut',
+      urlInput: 'https://youtu.be/custom123',
+      customColorHex: '#EA580C',
+      customIconName: 'music',
+    );
+
+    final ShortcutEntry added = store.entries.single;
+    expect(added.customColorHex, '#EA580C');
+    expect(added.customIconName, 'music');
+
+    await store.updateShortcut(
+      id: added.id,
+      nameInput: 'Customized Shortcut',
+      urlInput: 'https://youtu.be/custom123',
+      customColorHex: '#059669',
+      customIconName: 'game',
+    );
+
+    final ShortcutEntry updated = store.entries.single;
+    expect(updated.customColorHex, '#059669');
+    expect(updated.customIconName, 'game');
+  });
+
+  test('persists curated theme preferences (amoled, warmSepia, forestDark, cyberpunkNeon)', () async {
+    final MemoryShortcutRepository repository = MemoryShortcutRepository();
+    final ShortcutStore store = buildStore(repository);
+
+    await store.setThemePreference(AppThemePreference.amoled);
+    expect(store.themePreference, AppThemePreference.amoled);
+
+    final ShortcutStore reloaded = buildStore(repository);
+    await reloaded.load();
+    expect(reloaded.themePreference, AppThemePreference.amoled);
+
+    await reloaded.setThemePreference(AppThemePreference.cyberpunkNeon);
+    expect(reloaded.themePreference, AppThemePreference.cyberpunkNeon);
+  });
 }
 
 ShortcutEntry _seedEntry({

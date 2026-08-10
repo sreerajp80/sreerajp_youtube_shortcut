@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:flutter/services.dart';
+import 'package:pointycastle/export.dart';
 
 import 'shortcut_models.dart';
 
@@ -197,14 +200,95 @@ class ShortcutBackupService {
     return List<ShortcutEntry>.unmodifiable(parsed);
   }
 
-  String suggestedFileName(DateTime nowUtc) {
+  static const int _pbkdf2Iterations = 10000;
+  static const int _pbkdf2KeySize = 32;
+
+  Uint8List _deriveKey(String passphrase, Uint8List salt) {
+    final PBKDF2KeyDerivator pbkdf2 = PBKDF2KeyDerivator(
+      HMac(SHA256Digest(), 64),
+    )..init(Pbkdf2Parameters(salt, _pbkdf2Iterations, _pbkdf2KeySize));
+    return pbkdf2.process(Uint8List.fromList(utf8.encode(passphrase)));
+  }
+
+  bool isEncrypted(String raw) {
+    final String trimmed = raw.trim();
+    return trimmed.startsWith('v1:');
+  }
+
+  String encodeEncrypted({
+    required List<ShortcutEntry> entries,
+    required String passphrase,
+    required DateTime exportedAtUtc,
+  }) {
+    final String plainJson = encode(
+      entries: entries,
+      exportedAtUtc: exportedAtUtc,
+    );
+
+    final Random random = Random.secure();
+    final Uint8List salt = Uint8List(16);
+    for (int i = 0; i < 16; i++) {
+      salt[i] = random.nextInt(256);
+    }
+    final Uint8List keyBytes = _deriveKey(passphrase, salt);
+    final encrypt.Key key = encrypt.Key(keyBytes);
+    final encrypt.IV iv = encrypt.IV.fromSecureRandom(12);
+
+    final encrypt.Encrypter encrypter = encrypt.Encrypter(
+      encrypt.AES(key, mode: encrypt.AESMode.gcm),
+    );
+    final encrypt.Encrypted encrypted = encrypter.encrypt(plainJson, iv: iv);
+
+    final String saltB64 = base64Encode(salt);
+    final String ivB64 = iv.base64;
+    final String ciphertextB64 = encrypted.base64;
+
+    return 'v1:$saltB64:$ivB64:$ciphertextB64';
+  }
+
+  List<ShortcutEntry> decodeEncrypted(String raw, String passphrase) {
+    final String trimmed = raw.trim();
+    if (!trimmed.startsWith('v1:')) {
+      return decode(raw);
+    }
+
+    final List<String> parts = trimmed.substring(3).split(':');
+    if (parts.length != 3) {
+      throw const ShortcutBackupException(
+        'The encrypted backup file format is invalid.',
+      );
+    }
+
+    try {
+      final Uint8List salt = base64Decode(parts[0]);
+      final encrypt.IV iv = encrypt.IV.fromBase64(parts[1]);
+      final encrypt.Encrypted encrypted = encrypt.Encrypted.fromBase64(parts[2]);
+
+      final Uint8List keyBytes = _deriveKey(passphrase, salt);
+      final encrypt.Key key = encrypt.Key(keyBytes);
+      final encrypt.Encrypter encrypter = encrypt.Encrypter(
+        encrypt.AES(key, mode: encrypt.AESMode.gcm),
+      );
+
+      final String plainJson = encrypter.decrypt(encrypted, iv: iv);
+      return decode(plainJson);
+    } catch (e) {
+      if (e is ShortcutBackupException) rethrow;
+      throw const ShortcutBackupException(
+        'Invalid password or corrupted backup file.',
+      );
+    }
+  }
+
+  String suggestedFileName(DateTime nowUtc, {bool isEncrypted = false}) {
     final DateTime utc = nowUtc.toUtc();
     final String year = utc.year.toString().padLeft(4, '0');
     final String month = utc.month.toString().padLeft(2, '0');
     final String day = utc.day.toString().padLeft(2, '0');
     final String hour = utc.hour.toString().padLeft(2, '0');
     final String minute = utc.minute.toString().padLeft(2, '0');
-    return 'yt_shortcuts_backup_$year-$month-${day}_$hour$minute.json';
+    final String ext = isEncrypted ? 'aes.json' : 'json';
+    return 'yt_shortcuts_backup_$year-$month-${day}_$hour$minute.$ext';
   }
 }
 

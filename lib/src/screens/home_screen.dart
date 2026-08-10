@@ -7,10 +7,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/errors/app_exception.dart';
 import '../backup_service.dart';
+import '../privacy_lock_store.dart';
 import '../share_intent_service.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
+import '../widgets/shortcut_qr_dialog.dart';
 import 'add_shortcut_screen.dart';
+import 'qr_scanner_screen.dart';
 import 'settings_screen.dart';
 import 'shortcut_detail_screen.dart';
 
@@ -56,11 +59,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  List<ShortcutEntry> _applyFilters(List<ShortcutEntry> entries) {
-    if (!_isFilterActive) return entries;
-    final String query = _searchQuery.trim().toLowerCase();
+  List<ShortcutEntry> _applyFilters(
+    List<ShortcutEntry> entries, {
+    bool hidePrivate = false,
+  }) {
     return entries
         .where((ShortcutEntry entry) {
+          if (hidePrivate && entry.isPrivate) {
+            return false;
+          }
           if (_typeFilters.isNotEmpty &&
               !_typeFilters.contains(entry.targetType)) {
             return false;
@@ -69,7 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
               !_tagFilters.any((String tag) => entry.tags.contains(tag))) {
             return false;
           }
-          if (query.isNotEmpty) {
+          if (_searchQuery.trim().isNotEmpty) {
+            final String query = _searchQuery.trim().toLowerCase();
             final bool nameMatch = entry.name.toLowerCase().contains(query);
             final bool tagMatch = entry.tags.any(
               (String t) => t.toLowerCase().contains(query),
@@ -204,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final ShortcutStore store = context.watch<ShortcutStore>();
+    final PrivacyLockStore lockStore = context.watch<PrivacyLockStore>();
     final ThemeData theme = Theme.of(context);
 
     if (_isReorderMode && store.entries.isEmpty) {
@@ -211,9 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _pruneStaleSelectedIds(store.entries);
 
+    final bool hidePrivate =
+        lockStore.privateLockEnabled && !lockStore.isPrivateVaultUnlocked;
+
     final List<ShortcutEntry> visibleEntries = _isReorderMode
         ? store.entries
-        : _applyFilters(store.entriesSorted);
+        : _applyFilters(store.entriesSorted, hidePrivate: hidePrivate);
 
     final PreferredSizeWidget appBar;
     if (_isReorderMode) {
@@ -393,6 +405,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppBar(
       title: const Text('YT Shortcuts'),
       actions: <Widget>[
+        IconButton(
+          tooltip: 'Scan QR code',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) => const QrScannerScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+        ),
         if (store.entries.isNotEmpty) ...<Widget>[
           IconButton(
             tooltip: store.layoutPreference == AppLayoutPreference.grid
@@ -528,6 +551,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       actions: <Widget>[
         if (single && singleEntry != null) ...<Widget>[
+          IconButton(
+            tooltip: 'Show QR code',
+            icon: const Icon(Icons.qr_code_2_rounded),
+            onPressed: () => ShortcutQrDialog.show(context, singleEntry),
+          ),
           IconButton(
             tooltip: 'Shortcut details',
             icon: const Icon(Icons.info_outline_rounded),
@@ -1362,8 +1390,10 @@ class _ShortcutCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color typeAccent = entry.targetType.accent(theme.brightness);
-    final Color avatarColor = _avatarColorFor(entry.id);
+    final Color? customColor = _parseColorHex(entry.customColorHex);
+    final Color avatarColor = customColor ?? _avatarColorFor(entry.id);
     final String avatarLetters = _avatarLettersFor(entry.name);
+    final IconData? customIcon = _parseIconData(entry.customIconName);
     const BorderRadius cardBorderRadius = BorderRadius.all(Radius.circular(20));
 
     const Color darkBaseTop = Color(0xFF12181A);
@@ -1496,16 +1526,22 @@ class _ShortcutCard extends StatelessWidget {
                                 ],
                               ),
                               child: Center(
-                                child: Text(
-                                  avatarLetters,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 18,
-                                    letterSpacing: -0.2,
-                                    height: 1.0,
-                                  ),
-                                ),
+                                child: customIcon != null
+                                    ? Icon(
+                                        customIcon,
+                                        color: Colors.white,
+                                        size: 24,
+                                      )
+                                    : Text(
+                                        avatarLetters,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 18,
+                                          letterSpacing: -0.2,
+                                          height: 1.0,
+                                        ),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -1857,4 +1893,34 @@ String _avatarLettersFor(String name) {
     return taken.toUpperCase();
   }
   return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+Color? _parseColorHex(String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  final String clean = hex.replaceAll('#', '');
+  if (clean.length == 6) {
+    final int? val = int.tryParse('FF$clean', radix: 16);
+    if (val != null) return Color(val);
+  }
+  return null;
+}
+
+IconData? _parseIconData(String? name) {
+  if (name == null || name.isEmpty) return null;
+  const Map<String, IconData> icons = <String, IconData>{
+    'play': Icons.play_arrow_rounded,
+    'star': Icons.star_rounded,
+    'music': Icons.music_note_rounded,
+    'game': Icons.sports_esports_rounded,
+    'code': Icons.code_rounded,
+    'tv': Icons.tv_rounded,
+    'flame': Icons.local_fire_department_rounded,
+    'headphones': Icons.headphones_rounded,
+    'bookmark': Icons.bookmark_rounded,
+    'video': Icons.video_library_rounded,
+    'heart': Icons.favorite_rounded,
+    'lightning': Icons.bolt_rounded,
+    'sparkles': Icons.auto_awesome_rounded,
+  };
+  return icons[name];
 }

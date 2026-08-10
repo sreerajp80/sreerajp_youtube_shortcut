@@ -79,11 +79,17 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Dark').last);
+    await tester.tap(find.text('Classic Dark'));
     await tester.pumpAndSettle();
 
     expect(store.themePreference, AppThemePreference.dark);
+
+    await tester.tap(find.text('AMOLED Pure Black'));
+    await tester.pumpAndSettle();
+
+    expect(store.themePreference, AppThemePreference.amoled);
   });
+
   testWidgets('opens About through the new Settings screen', (
     WidgetTester tester,
   ) async {
@@ -94,7 +100,15 @@ void main() {
 
     expect(find.text('Settings'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ListTile, 'About'));
+    final Finder aboutTile = find.widgetWithText(ListTile, 'About');
+    await tester.scrollUntilVisible(
+      aboutTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(aboutTile);
     await tester.pumpAndSettle();
 
     expect(find.text('About'), findsOneWidget);
@@ -109,7 +123,15 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ListTile, 'Permissions'));
+    final Finder permissionsTile = find.widgetWithText(ListTile, 'Permissions');
+    await tester.scrollUntilVisible(
+      permissionsTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(permissionsTile);
     await tester.pumpAndSettle();
 
     expect(find.text('Permissions'), findsOneWidget);
@@ -125,7 +147,15 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ListTile, 'Channel handles'));
+    final Finder handlesTile = find.widgetWithText(ListTile, 'Channel handles');
+    await tester.scrollUntilVisible(
+      handlesTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(handlesTile);
     await tester.pumpAndSettle();
 
     expect(find.text('Channel handles'), findsOneWidget);
@@ -392,7 +422,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final Finder backupTile = find.widgetWithText(ListTile, 'Backup & Restore');
-    await tester.ensureVisible(backupTile);
+    await tester.scrollUntilVisible(
+      backupTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(backupTile);
     await tester.pumpAndSettle();

@@ -17,8 +17,8 @@ It serves as the reference document for developers, AI assistants, and auditors 
 - **Cognitive Accessibility & Simplified UX**: Offers direct, distraction-free visual launcher cards with color-coded avatar initials, making navigation intuitive for users with cognitive fatigue, ADHD, or low digital literacy. The initials are not simply "first 2 letters": a single-word name uses the first 2 characters of that word; a multi-word name uses the first letter of the first two words only (any further words are ignored); a blank/whitespace-only name shows `"?"`.
 - **Inclusive Accessibility Engineering**: TalkBack support comes from Flutter/Material's built-in accessibility tree on standard widgets (buttons, tooltips) rather than custom `Semantics` annotations. Most primary controls (buttons, cards) use default Material tap target sizing; the category filter chips are a deliberate exception and are set smaller (`VisualDensity.compact` / shrink-wrapped tap target), so there is no app-wide enforced minimum. The app also offers high contrast ratios (WCAG AA compliance), responsive multi-column layouts, and a protective upper bound on system font scaling (clamped to a maximum 1.3x scale factor on shortcut card content) to prevent UI clipping or breakage.
 - **Senior & Tech-Averse Friendly**: Large visual targets, readable text, clear initial badges, and zero complex setup menus allow seniors to easily launch daily news feeds or favorite creator streams.
-- **Power User Productivity & Organization**: Features real-time substring search, multi-chip category filtering, 5 sorting modes (including manual drag-and-drop), multi-select bulk operations (bulk export/delete), single-item quick actions (view/edit/copy without leaving selection mode — only shown when exactly one item is selected), and smart clipboard auto-detection.
-- **Personalized Look & Feel**: A Settings-screen theme switch (System default / Light / Dark) lets each user match the app to their phone setting or their own preference.
+- **Power User Productivity & Organization**: Features real-time substring search (matching names, URLs, and custom tags), multi-chip filtering across 4 target categories and custom user tags, 5 sorting modes (including manual drag-and-drop), optional favorites pinning (`favoritesFirst`), multi-select bulk operations (bulk export/delete), single-item quick actions (details/edit/copy/QR code dialog without leaving selection mode — shown when exactly one item is selected), and smart clipboard auto-detection.
+- **Personalized Look & Feel**: A Settings-screen visual Theme Picker supporting 7 curated theme preferences (System default, Light, Classic Dark, AMOLED Pure Black, Warm Sepia, Forest Dark, Cyberpunk Neon) and per-shortcut custom card accent colors & custom icons allows each user to personalize the app UI.
 - **Usage Insights, Not Surveillance**: Every shortcut quietly tracks its own launch count and last-launched time, entirely on-device. This powers two extra sort modes ("Recently launched", "Most launched") and an "Activity" card on the Shortcut Detail screen — a personal-use insight, not analytics sent anywhere.
 - **Full Two-Way Backup & Restore**: Not just "export for safekeeping" — a complete round-trip: export all or selected shortcuts to a JSON file, then bring them back on the same or another device via Merge (duplicate-safe) or Replace mode, all through the permissionless system file picker.
 - **System-Level OS Integration**: Acts as a native Android share receiver (`android.intent.action.SEND`), permitting direct handoff from YouTube, web browsers, or chat applications without manual copy-pasting.
@@ -34,7 +34,7 @@ The app never connects to the internet itself — it only builds a cleaned, cano
 
 - **Visual Identity & Native Handoff**: Custom launcher icon, launcher display label, and a native Android splash theme for seamless startup transitions.
 - **Build Flavors**:
-  - `dev`: Application ID `in.sreerajp.sreerajp_youtube_shortcut.dev`, display name **YT Shortcuts Dev** (uses automatic debug keystore). The version name shown on the About screen also gets a `-dev` suffix (e.g. `1.3.15-dev`) so a dev build is never mistaken for a prod build.
+  - `dev`: Application ID `in.sreerajp.sreerajp_youtube_shortcut.dev`, display name **YT Shortcuts Dev** (uses automatic debug keystore). The version name shown on the About screen also gets a `-dev` suffix (e.g. `1.4.15-dev`) so a dev build is never mistaken for a prod build.
   - `prod`: Application ID `in.sreerajp.sreerajp_youtube_shortcut`, display name **YT Shortcuts** (requires release signing key).
 - **System Requirements**: Android API Level 24 (Android 7.0) minimum.
 - **Manifest Protections**:
@@ -69,6 +69,11 @@ Each saved shortcut entry (`ShortcutEntry`) is an immutable domain object contai
 - **`updatedAtIso`** — UTC ISO 8601 last modified timestamp.
 - **`lastLaunchedAtIso`** — UTC ISO 8601 last launched timestamp (`null` if never opened).
 - **`launchCount`** — Non-negative integer counter tracking total launches.
+- **`isFavorite`** — Boolean flag indicating whether the shortcut is starred/pinned as a favorite (`false` by default).
+- **`isPrivate`** — Boolean flag indicating whether the shortcut is protected by the private vault lock (`false` by default).
+- **`tags`** — List of custom string tags assigned to the shortcut for organization (`const []` by default).
+- **`customColorHex`** — Optional string hex color code (e.g. `"#EA580C"`) for custom card avatar background (`null` if unset).
+- **`customIconName`** — Optional string icon identifier (e.g. `"music"`, `"game"`, `"star"`, `"code"`, etc.) for custom card avatar icon (`null` if using default initials).
 
 The shipped app persists shortcuts through a `SharedPreferences`-backed `ShortcutRepository`
 implementation. A separate in-memory `MemoryShortcutRepository` implementation also exists in the
@@ -134,31 +139,22 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 - **Deterministic Initial Avatars**: Cards display 2-letter uppercase initial badges styled over a 12-color harmonious palette determined deterministically via string hashing.
 - **One-Tap Launcher Cards**: Tap any shortcut card to launch an explicit Android Intent to YouTube. Card renders an inline loading spinner while intent launch executes.
 - **Floating Action Button (FAB)**: Primary CTA button to navigate to the Add Shortcut screen. Hidden while Reorder mode or Multi-Select mode is active.
-- **App Bar with Four Separate Controls** (shown when at least one shortcut exists) — the app bar
-  title itself is always the static text "YT Shortcuts"; the shortcut-count badge is not an app-bar
-  element (it lives in the screen body — see "Always-Inline Search" below):
-  - **Grid / List layout switch button** — toggles the layout directly (not inside a menu).
-  - **Sort menu** — its own popup menu icon, opens the sort mode picker.
-  - **Options menu** — a separate popup menu containing only two actions: **Reorder shortcuts**
-    (activates manual drag-and-drop mode; enabled only when Manual sort is the active sort mode —
-    otherwise the item is shown disabled/greyed out with the label "Reorder shortcuts (manual
-    sort only)") and **Clear all shortcuts** (wipes all saved entries after explicit confirmation
-    modal).
-  - **Settings button** — always visible in the app bar (not nested inside any menu), navigates
-    to the Settings screen.
-  - **Import/Export, About, Permissions, and Channel Handles are not on the Home app bar at
-    all.** They are reached only via tiles inside the Settings screen (see §5.4).
+- **App Bar Controls** — the app bar title itself is always the static text "YT Shortcuts"; the shortcut-count badge is not an app-bar element (it lives in the screen body — see "Always-Inline Search" below):
+  - **Scan QR code button** — always visible in the app bar (tooltipped "Scan QR code"), opens the in-app Offline QR Scanner (`QrScannerScreen`).
+  - **Grid / List layout switch button** — shown when shortcuts exist, toggles the layout directly (not inside a menu).
+  - **Sort menu** — shown when shortcuts exist, its own popup menu icon (tooltipped "Sort shortcuts"), opens the sort mode picker (includes "Favorites first" checkbox toggle and 5 sort modes).
+  - **Options menu** — shown when shortcuts exist, a separate popup menu (tooltipped "Options") containing two actions: **Reorder shortcuts** (activates manual drag-and-drop mode; enabled only when Manual sort is the active sort mode — otherwise the item is shown disabled/greyed out with the label "Reorder shortcuts (manual sort only)") and **Clear all shortcuts** (wipes all saved entries after explicit confirmation modal).
+  - **Settings button** — always visible in the app bar (not nested inside any menu), navigates to the Settings screen.
+  - **Import/Export, About, Permissions, and Channel Handles are not on the Home app bar at all.** They are reached only via tiles inside the Settings screen (see §5.4).
 - **Always-Inline Search**: there is no search "toggle" button. Whenever shortcuts exist (and
   the user is not reordering or in multi-select mode), a search box is shown inline in the
-  screen body for real-time substring search. The match counter badge (e.g. "3/12") appears on
-  the "Shortcut Sections" heading above the list, not attached to a toggle button.
-- **Sorting Preferences** (5 options):
-  - Manual order (drag-and-drop reordering enabled).
-  - Alphabetical (A–Z).
-  - Newest first.
-  - Recently launched.
-  - Most launched.
-- **Multi-Chip Target Filter**: Filter by 4 category chips (Video, Shorts, Playlist, Channel) which operate simultaneously with active search text. There is no separate "All" chip — seeing all shortcuts is simply the default state when no chip is selected.
+  screen body for real-time substring search. Matches evaluate shortcut names, canonical URLs,
+  and custom tags. The match counter badge (e.g. "3/12") appears on the "Shortcut Sections"
+  heading above the list, not attached to a toggle button.
+- **Sorting Preferences & Favorites Pinning**:
+  - 5 sort order modes: Manual order (drag-and-drop reordering enabled), Alphabetical (A–Z), Newest first, Recently launched, Most launched.
+  - Favorites-first toggle (`favoritesFirst` preference): when enabled, starred/favorite shortcuts (`isFavorite: true`) are pinned to the top of the list regardless of active sort mode.
+- **Multi-Chip Category & Tag Filter**: Filter by 4 category chips (Video, Shorts, Playlist, Channel) and dynamic custom tag chips which operate simultaneously with active search text. There is no separate "All" chip — seeing all shortcuts is simply the default state when no chip is selected.
 - **Manual Drag-and-Drop Reordering**: In Manual order mode, the whole shortcut card becomes
   long-press-draggable (there is no separate grip/handle icon on the card). While dragging, the
   card being hovered over shows a highlighted border to indicate the drop target. Dropping a card
@@ -178,8 +174,8 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
     of the selected ids match an existing shortcut (e.g. the list changed
     underneath the selection), the delete is a safe no-op — nothing is saved
     and nothing changes on screen.
-  - **Single-Item Quick Actions**: When exactly 1 item is selected, three extra icon buttons —
-    tooltipped "Shortcut details", "Edit shortcut", and "Copy URL" — appear directly in the
+  - **Single-Item Quick Actions**: When exactly 1 item is selected, four extra icon buttons —
+    tooltipped "Show QR code", "Shortcut details", "Edit shortcut", and "Copy URL" — appear directly in the
     selection app bar. These are plain app bar icon buttons, not a popup/context menu.
 - **Empty States**:
   - General empty state: Illustrative graphic + "Create first shortcut" CTA button.
@@ -188,7 +184,7 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 
 ### 5.2 Add / Edit Shortcut Screen
 
-- **Text Inputs**: Name field and Channel handle / YouTube URL field.
+- **Form Inputs**: Name field, Channel handle / YouTube URL field, optional comma-separated custom Tags field, Favorites toggle star, Private Shortcut toggle lock, and visual Card Customization options (avatar color palette and custom icon picker).
 - **Live Formatted Preview**: Real-time "Full URL: …" preview text showing the canonical URL built as the user types. This preview only appears while the input has no explicit `https://` scheme (bare handles, scheme-less paths); it is suppressed once the user has typed or pasted a full `https://` URL.
 - **Smart Clipboard Suggestion Banner**: Automatically checks system clipboard for a YouTube link upon screen open. Displays a one-tap "Paste" banner; auto-dismisses on edit or dismissal. The banner only appears if the clipboard text contains one of `youtube.com/`, `youtu.be/`, `youtube-nocookie.com/`, or `music.youtube.com/` — a bare handle (e.g. `@SomeChannel`) copied to the clipboard will **not** trigger the suggestion, even though typing it manually into the field is fully supported. **Note**: this host-substring list omits `m.youtube.com/`, even though `m.youtube.com` is a supported host for saving a shortcut (§4) — a clipboard link on the mobile-site host will not trigger the Paste banner.
 - **Static Format Hint Chips**: Non-interactive example chips (`@handle`, `watch`, `youtu.be`, `live`, `shorts`, `playlist`, `channel`) that visually illustrate the accepted syntax patterns. They are not tappable and do not pre-fill any input field.
@@ -217,8 +213,9 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 ### 5.4 Settings Screen
 
 - **Intro Card**: A short explanatory card at the top of the screen ("Manage app appearance, information, and Android manifest permissions.").
-- **Theme Selection**: A segmented button to choose between System default, Light theme, or Dark theme (persisted in `SharedPreferences`). A one-line description under the control updates live with the selection ("Follow your phone setting." / "Always use the light palette." / "Always use the dark palette."). The segmented button uses a distinct accent color when Dark theme is active.
+- **Theme Selection**: A visual Theme Picker with preview swatches and live descriptions allowing users to select among 7 curated theme preferences: System default, Light theme, Classic Dark, AMOLED Pure Black (`#000000`), Warm Sepia (`#FBF0D9`), Forest Dark (`#0B1A15`), and Cyberpunk Neon (`#0A0915`). Persisted across sessions in `SharedPreferences`.
 - **Navigation Links**: Direct links to About, Permissions, Channel Handles guide, and Backup & Restore screens.
+- **Privacy & Security Card**: Allows setting or changing a 4–6 digit Security PIN, toggling **App Lock** (requiring PIN or biometrics upon opening the app), and toggling **Lock Private Shortcuts** (gating shortcuts marked as private).
 
 ### 5.5 Backup & Restore Screen
 
@@ -226,7 +223,7 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 - **Concurrency Guard**: The native side blocks a second export or import from starting while one is already in progress, returning a "busy" error instead of running two file-picker operations at once.
 - **Export Shortcuts**:
   - Saves all or selected shortcuts into a versioned JSON backup file. The file's top-level fields are `type` (`payloadType: "sreerajp_youtube_shortcuts_backup"`), `schemaVersion: 1`, `appId` (the app's package id), `exportedAtIso`, `shortcutCount`, and the `shortcuts` array. **Note**: the `appId` field always contains the **prod** flavor's package id (`in.sreerajp.sreerajp_youtube_shortcut`), even when the export is produced from a `dev`-flavor build.
-  - Automated timestamped filename pattern: `yt_shortcuts_backup_YYYY-MM-DD_HHmm.json`.
+  - Automated timestamped filename pattern: `yt_shortcuts_backup_YYYY-MM-DD_HHmm.json` (or `yt_shortcuts_backup_YYYY-MM-DD_HHmm.aes.json` when password encryption is enabled).
   - Each exported shortcut includes name, source URL, canonical URL, target type, and
     created/updated timestamps. If a shortcut has been launched at least once, its **launch
     count and last-launched timestamp are also included** in the export — these on-device usage
@@ -243,7 +240,7 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 
 ### 5.6 About Screen
 
-- Displays author details, app display version and build number combined in one row (e.g. `1.3.15+1`), build date, and AI model/assistance label (`APP_AI_USED`, defaults to `OpenAI GPT-5` if not overridden at build time). A short Notes card below these summarizes the app's offline, local-storage, explicit-intent design in one sentence. There is no separate "project credits" section. These fixed text blocks (the app description text and the notes body) are stored as static constants in `lib/src/about_constants.dart`, not fetched or computed at runtime.
+- Displays author details, app display version and build number combined in one row (e.g. `1.4.15+20`), build date, and AI model/assistance label. App title, description, version, build, and key-value details are dynamically loaded at startup from `assets/config/app_config.json` via `ConfigService` (`AppConfig`), with fallbacks defined in `AppConfig.fallback`. Static UI strings (such as the screen title, notes card title, and notes card body) are defined in `lib/src/about_constants.dart`. A short Notes card below these summarizes the app's offline, local-storage, explicit-intent design. There is no separate "project credits" section.
 - Fetches build metadata natively via `build_metadata` MethodChannel with fallback to `package_info_plus` and current date.
 - **Note on app name**: the app shows three different name strings depending on where you look —
   the Android launcher label is "YT Shortcuts" (or "YT Shortcuts Dev" for the dev flavor), the
@@ -253,17 +250,10 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 
 ### 5.7 Permissions Screen
 
-- Informational screen detailing the zero runtime Android permissions security model, split into two
-  sections:
-  - **Explicit Permissions**: shows "None" — the release app declares no `<uses-permission>` entries
-    at all.
-  - **Implicit Permissions / Declarations**: 5 entries — Share receiver target, clipboard reading, SAF
-    system file picker, the `PROCESS_TEXT` package-visibility query (listed as "Package visibility
-    query" — see §2 for what this declaration actually does; it does not make the app a process-text
-    target itself), and **Launcher visibility** (the `MainActivity` is `exported` with the
-    `MAIN`/`LAUNCHER` intent filter so the app shows up in the device launcher).
-- An intro card states plainly: "Permission prompts on Android... None. This app does not request
-  runtime permission prompts."
+- Informational screen detailing Android permissions, split into two sections:
+  - **Explicit Permissions**: `android.permission.CAMERA` — requested only when opening the optional in-app QR scanner to process camera frames on-device for YouTube QR code scanning.
+  - **Implicit Permissions / Declarations**: 5 entries — Share receiver target, clipboard reading, SAF system file picker, the `PROCESS_TEXT` package-visibility query, and **Launcher visibility**.
+- An intro card explains: "Camera permission is used exclusively for the optional in-app QR scanner. The app never requests internet access or background tracking permissions."
 
 ### 5.8 Channel Handles (Shortcut Behavior) Screen
 
@@ -286,16 +276,40 @@ valid channel handle or YouTube URL.") rather than a message calling out the dot
 - Dedicated fallback error screen rendered if local storage or metadata initialization fails at boot.
 - Uncaught Flutter framework (`FlutterError.onError`) and async platform error (`PlatformDispatcher.instance.onError`) boundaries prevent app crash loops.
 
+### 5.10 In-App Offline QR Scanner & Air-Gapped QR Generator
+
+- **Offline QR Code Generator (`ShortcutQrDialog`)**: Displays an on-screen high-contrast QR code for any saved YouTube shortcut (accessible from the `ShortcutDetailScreen` and `HomeScreen` single-item selection bar). The QR payload encodes a structured JSON string (`{"type": "yt_shortcut", "name": "...", "url": "...", "tags": [...]}`) or standard YouTube canonical URL so another device can scan and receive it without internet or messaging apps.
+- **In-App Offline QR Scanner (`QrScannerScreen`)**: An in-app camera vision scanner powered by `mobile_scanner` with a viewport frame overlay, torch toggle button, front/back camera switcher, and gallery image picker (`image_picker` + `analyzeImage`).
+- **Receiver Handoff Sheet ("Shortcut Received!")**: Scanning a YouTube QR code pauses camera vision and opens a handoff bottom sheet pre-filled with shortcut title, category badge, canonical link, and tags, offering direct actions:
+  - **Save to YT Shortcuts**: Opens the `AddShortcutScreen` with Name, URL, and Tags pre-filled.
+  - **Open in YouTube**: Launches the shortcut directly in the YouTube app via explicit Android Intent.
+  - **Scan Another Code**: Resumes live camera scanning.
+
+### 5.11 Privacy Lock & Password-Encrypted Backup Vault
+
+- **Biometric & Local PIN App/Category Lock (`PrivacyLockStore` / `PrivacyLockService`)**:
+  - **Security Options**: Optional local security lock to gate access to the overall app ("App Lock") or private shortcut entries ("Lock Private Shortcuts").
+  - **Authentication Modes**: Biometric unlock via `local_auth` (fingerprint, face unlock) backed by native `FlutterFragmentActivity`, with 4–6 digit local PIN fallback.
+  - **PIN Security**: PIN is hashed with PBKDF2-HMAC-SHA256 (10,000 iterations, 16-byte random salt, 32-byte key) and persisted locally.
+  - **Auto-Lock on Background**: Integrated lifecycle observer (`_PrivacyLockGate`) automatically locks the app when paused or sent to the background.
+  - **Private Shortcut Marking**: Shortcuts can be marked as private (`isPrivate: true`) during creation or editing. When the private vault is locked, private shortcuts are hidden from the home list.
+- **Password-Encrypted JSON Backup Export**:
+  - **AES-256-GCM Encryption**: Passphrase-based encryption option on export using AES-256-GCM mode with PBKDF2-HMAC-SHA256 key derivation.
+  - **Envelope Format**: Self-contained string format `v1:<salt_b64>:<iv_b64>:<ciphertext_b64>`.
+  - **Encrypted Import Detection**: Automatically detects encrypted backups (`v1:` prefix) upon selection and prompts for the decryption passphrase. Invalid passphrases or corrupted files surface clear error feedback without crashing.
+
 ---
 
 ## 6. App-Wide State & Persistence Model
 
-The app uses `provider` with a root `ShortcutStore` (`ChangeNotifier`). Persistent settings saved in `SharedPreferences` include:
+The app uses `provider` with three root state objects: `ShortcutStore` (`ChangeNotifier`), `PrivacyLockStore` (`ChangeNotifier`), and `AppConfig` (`Provider<AppConfig>`). Persistent settings saved in `SharedPreferences` include:
 
-- **Theme Preference**: `system`, `light`, `dark`.
-- **Layout Preference**: `grid`, `list`.
-- **Sort Preference**: `manual`, `alphabetical`, `newest`, `recent`, `mostUsed`.
-- **Shortcuts List**: Stored as a versioned JSON string.
+- **Theme Preference**: `system`, `light`, `dark`, `amoled`, `warmSepia`, `forestDark`, `cyberpunkNeon` (`app_theme_preference_v1`).
+- **Layout Preference**: `grid`, `list` (`app_layout_preference_v1`).
+- **Sort Preference**: `manual`, `alphabetical`, `newest`, `recent`, `mostUsed` (`app_sort_preference_v1`).
+- **Favorites-First Preference**: `true`, `false` (`app_favorites_first_v1`).
+- **Privacy Lock Settings**: `app_lock_enabled_v1`, `private_lock_enabled_v1`, `privacy_pin_hash_v1`, `privacy_pin_salt_v1`.
+- **Shortcuts List**: Stored as a versioned JSON string (`shortcut_entries_v1`).
 
 ---
 

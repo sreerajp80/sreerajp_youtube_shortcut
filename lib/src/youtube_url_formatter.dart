@@ -13,12 +13,18 @@ class YoutubeUrlFormatter {
     required String urlInput,
     List<String> tags = const <String>[],
     bool isFavorite = false,
+    bool isPrivate = false,
+    String? customColorHex,
+    String? customIconName,
   }) {
     return _buildEntry(
       nameInput: nameInput,
       urlInput: urlInput,
       tags: tags,
       isFavorite: isFavorite,
+      isPrivate: isPrivate,
+      customColorHex: customColorHex,
+      customIconName: customIconName,
     );
   }
 
@@ -28,6 +34,11 @@ class YoutubeUrlFormatter {
     required String urlInput,
     List<String>? tags,
     bool? isFavorite,
+    bool? isPrivate,
+    String? customColorHex,
+    bool clearCustomColorHex = false,
+    String? customIconName,
+    bool clearCustomIconName = false,
   }) {
     return _buildEntry(
       nameInput: nameInput,
@@ -38,6 +49,13 @@ class YoutubeUrlFormatter {
       existingLaunchCount: existingEntry.launchCount,
       tags: tags ?? existingEntry.tags,
       isFavorite: isFavorite ?? existingEntry.isFavorite,
+      isPrivate: isPrivate ?? existingEntry.isPrivate,
+      customColorHex: clearCustomColorHex
+          ? null
+          : (customColorHex ?? existingEntry.customColorHex),
+      customIconName: clearCustomIconName
+          ? null
+          : (customIconName ?? existingEntry.customIconName),
     );
   }
 
@@ -62,6 +80,9 @@ class YoutubeUrlFormatter {
     int existingLaunchCount = 0,
     List<String> tags = const <String>[],
     bool isFavorite = false,
+    bool isPrivate = false,
+    String? customColorHex,
+    String? customIconName,
   }) {
     final String trimmedName = nameInput.trim();
     if (trimmedName.isEmpty) {
@@ -94,7 +115,10 @@ class YoutubeUrlFormatter {
       lastLaunchedAtIso: existingLastLaunchedAtIso,
       launchCount: existingLaunchCount,
       isFavorite: isFavorite,
+      isPrivate: isPrivate,
       tags: tags,
+      customColorHex: customColorHex,
+      customIconName: customIconName,
     );
   }
 

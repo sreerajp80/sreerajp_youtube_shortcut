@@ -204,12 +204,18 @@ class ShortcutStore extends ChangeNotifier {
     required String urlInput,
     List<String> tags = const <String>[],
     bool isFavorite = false,
+    bool isPrivate = false,
+    String? customColorHex,
+    String? customIconName,
   }) async {
     final ShortcutEntry newEntry = formatter.createEntry(
       nameInput: nameInput,
       urlInput: urlInput,
       tags: tags,
       isFavorite: isFavorite,
+      isPrivate: isPrivate,
+      customColorHex: customColorHex,
+      customIconName: customIconName,
     );
 
     _throwIfDuplicateName(normalizedName: newEntry.name.trim().toLowerCase());
@@ -230,6 +236,11 @@ class ShortcutStore extends ChangeNotifier {
     required String urlInput,
     List<String>? tags,
     bool? isFavorite,
+    bool? isPrivate,
+    String? customColorHex,
+    bool clearCustomColorHex = false,
+    String? customIconName,
+    bool clearCustomIconName = false,
   }) async {
     final ShortcutEntry existingEntry = _entries.firstWhere(
       (ShortcutEntry entry) => entry.id == id,
@@ -244,6 +255,11 @@ class ShortcutStore extends ChangeNotifier {
       urlInput: urlInput,
       tags: tags,
       isFavorite: isFavorite,
+      isPrivate: isPrivate,
+      customColorHex: customColorHex,
+      clearCustomColorHex: clearCustomColorHex,
+      customIconName: customIconName,
+      clearCustomIconName: clearCustomIconName,
     );
 
     _throwIfDuplicateName(
@@ -322,19 +338,34 @@ class ShortcutStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<BackupFileReadResult?> readBackupFromFile() async {
+    return backupGateway.readBackupFromUserChosenLocation();
+  }
+
   Future<BackupExportOutcome> exportShortcutsToFile({
     Iterable<ShortcutEntry>? entriesOverride,
+    String? passphrase,
   }) async {
     final List<ShortcutEntry> entriesToExport = entriesOverride == null
         ? _entries
         : List<ShortcutEntry>.unmodifiable(entriesOverride);
 
     final DateTime now = DateTime.now().toUtc();
-    final String contents = backupService.encode(
-      entries: entriesToExport,
-      exportedAtUtc: now,
+    final bool useEncryption = passphrase != null && passphrase.isNotEmpty;
+    final String contents = useEncryption
+        ? backupService.encodeEncrypted(
+            entries: entriesToExport,
+            passphrase: passphrase,
+            exportedAtUtc: now,
+          )
+        : backupService.encode(
+            entries: entriesToExport,
+            exportedAtUtc: now,
+          );
+    final String suggestedName = backupService.suggestedFileName(
+      now,
+      isEncrypted: useEncryption,
     );
-    final String suggestedName = backupService.suggestedFileName(now);
 
     final String? destination = await backupGateway
         .writeBackupToUserChosenLocation(
@@ -354,16 +385,22 @@ class ShortcutStore extends ChangeNotifier {
 
   Future<BackupImportOutcome> importShortcutsFromFile({
     required BackupImportMode mode,
+    BackupFileReadResult? fileResultOverride,
+    String? passphrase,
   }) async {
-    final BackupFileReadResult? fileResult = await backupGateway
-        .readBackupFromUserChosenLocation();
+    final BackupFileReadResult? fileResult = fileResultOverride ??
+        await backupGateway.readBackupFromUserChosenLocation();
     if (fileResult == null) {
       return const BackupImportCancelled();
     }
 
-    final List<ShortcutEntry> incomingEntries = backupService.decode(
-      fileResult.contents,
-    );
+    final bool encrypted = backupService.isEncrypted(fileResult.contents);
+    final List<ShortcutEntry> incomingEntries = encrypted
+        ? backupService.decodeEncrypted(
+            fileResult.contents,
+            passphrase ?? '',
+          )
+        : backupService.decode(fileResult.contents);
 
     final List<ShortcutEntry> nextEntries;
     final int added;

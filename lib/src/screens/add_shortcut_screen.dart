@@ -6,12 +6,21 @@ import '../../core/errors/app_exception.dart';
 import '../share_intent_service.dart';
 import '../shortcut_models.dart';
 import '../shortcut_store.dart';
+import 'qr_scanner_screen.dart';
 
 class AddShortcutScreen extends StatefulWidget {
-  const AddShortcutScreen({super.key, this.initialEntry, this.initialUrlInput});
+  const AddShortcutScreen({
+    super.key,
+    this.initialEntry,
+    this.initialUrlInput,
+    this.initialNameInput,
+    this.initialTags,
+  });
 
   final ShortcutEntry? initialEntry;
   final String? initialUrlInput;
+  final String? initialNameInput;
+  final List<String>? initialTags;
 
   @override
   State<AddShortcutScreen> createState() => _AddShortcutScreenState();
@@ -23,7 +32,10 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
   final TextEditingController _tagController = TextEditingController();
   bool _isSaving = false;
   bool _isFavorite = false;
+  bool _isPrivate = false;
   List<String> _tags = <String>[];
+  String? _customColorHex;
+  String? _customIconName;
   String? _clipboardSuggestion;
   bool _clipboardSuggestionResolved = false;
 
@@ -35,6 +47,36 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     '#Personal',
   ];
 
+  static const List<Map<String, String>> _accentColorPresets = <Map<String, String>>[
+    <String, String>{'name': 'Crimson', 'hex': '#D73A23'},
+    <String, String>{'name': 'Orange', 'hex': '#EA580C'},
+    <String, String>{'name': 'Amber', 'hex': '#CA8A04'},
+    <String, String>{'name': 'Emerald', 'hex': '#059669'},
+    <String, String>{'name': 'Teal', 'hex': '#0D9488'},
+    <String, String>{'name': 'Cyan', 'hex': '#0891B2'},
+    <String, String>{'name': 'Blue', 'hex': '#2563EB'},
+    <String, String>{'name': 'Indigo', 'hex': '#6366F1'},
+    <String, String>{'name': 'Purple', 'hex': '#7C3AED'},
+    <String, String>{'name': 'Pink', 'hex': '#DB2777'},
+    <String, String>{'name': 'Slate', 'hex': '#475569'},
+  ];
+
+  static const Map<String, IconData> _iconPresets = <String, IconData>{
+    'play': Icons.play_arrow_rounded,
+    'star': Icons.star_rounded,
+    'music': Icons.music_note_rounded,
+    'game': Icons.sports_esports_rounded,
+    'code': Icons.code_rounded,
+    'tv': Icons.tv_rounded,
+    'flame': Icons.local_fire_department_rounded,
+    'headphones': Icons.headphones_rounded,
+    'bookmark': Icons.bookmark_rounded,
+    'video': Icons.video_library_rounded,
+    'heart': Icons.favorite_rounded,
+    'lightning': Icons.bolt_rounded,
+    'sparkles': Icons.auto_awesome_rounded,
+  };
+
   bool get _isEditing => widget.initialEntry != null;
 
   @override
@@ -45,8 +87,19 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
       _nameController.text = initialEntry.name;
       _urlController.text = initialEntry.sourceUrl;
       _isFavorite = initialEntry.isFavorite;
+      _isPrivate = initialEntry.isPrivate;
       _tags = List<String>.from(initialEntry.tags);
+      _customColorHex = initialEntry.customColorHex;
+      _customIconName = initialEntry.customIconName;
       return;
+    }
+
+    if (widget.initialNameInput != null && widget.initialNameInput!.isNotEmpty) {
+      _nameController.text = widget.initialNameInput!;
+    }
+
+    if (widget.initialTags != null && widget.initialTags!.isNotEmpty) {
+      _tags = List<String>.from(widget.initialTags!);
     }
 
     final String? initialUrlInput = widget.initialUrlInput;
@@ -234,9 +287,20 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
             keyboardType: TextInputType.text,
             minLines: 1,
             maxLines: 1,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Channel handle or YouTube URL',
               hintText: '@MyChannel or https://www.youtube.com/@MyChannel/live',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                tooltip: 'Scan QR Code',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext context) => const QrScannerScreen(),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -297,6 +361,140 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
                   'Keep this shortcut pinned to the top of your list',
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: SwitchListTile(
+                value: _isPrivate,
+                onChanged: (bool value) {
+                  setState(() => _isPrivate = value);
+                },
+                secondary: Icon(
+                  _isPrivate ? Icons.lock_rounded : Icons.lock_open_rounded,
+                  color: _isPrivate
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface,
+                ),
+                title: const Text(
+                  'Private Shortcut',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Hide when private vault is locked',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Custom Card Accent Color Section
+          Text(
+            'Custom Card Accent Color',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: <Widget>[
+                ChoiceChip(
+                  label: const Text('Default'),
+                  selected: _customColorHex == null,
+                  onSelected: (_) {
+                    setState(() => _customColorHex = null);
+                  },
+                ),
+                const SizedBox(width: 8),
+                ..._accentColorPresets.map((Map<String, String> preset) {
+                  final String hex = preset['hex']!;
+                  final Color color = _parseColorHex(hex)!;
+                  final bool isSelected = _customColorHex == hex;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() => _customColorHex = hex);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : Colors.black26,
+                            width: isSelected ? 2.5 : 1.0,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Custom Card Icon Section
+          Text(
+            'Custom Card Icon',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: <Widget>[
+                ChoiceChip(
+                  label: const Text('Default Initials'),
+                  selected: _customIconName == null,
+                  onSelected: (_) {
+                    setState(() => _customIconName = null);
+                  },
+                ),
+                const SizedBox(width: 8),
+                ..._iconPresets.entries.map((MapEntry<String, IconData> entry) {
+                  final String key = entry.key;
+                  final IconData icon = entry.value;
+                  final bool isSelected = _customIconName == key;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      avatar: Icon(icon, size: 18),
+                      label: Text(key[0].toUpperCase() + key.substring(1)),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          _customIconName = isSelected ? null : key;
+                        });
+                      },
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -389,6 +587,16 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
     );
   }
 
+  Color? _parseColorHex(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
+    final String clean = hex.replaceAll('#', '');
+    if (clean.length == 6) {
+      final int? val = int.tryParse('FF$clean', radix: 16);
+      if (val != null) return Color(val);
+    }
+    return null;
+  }
+
   Future<void> _saveShortcut() async {
     setState(() {
       _isSaving = true;
@@ -402,6 +610,11 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
           urlInput: _urlController.text,
           tags: _tags,
           isFavorite: _isFavorite,
+          isPrivate: _isPrivate,
+          customColorHex: _customColorHex,
+          clearCustomColorHex: _customColorHex == null,
+          customIconName: _customIconName,
+          clearCustomIconName: _customIconName == null,
         );
       } else {
         await context.read<ShortcutStore>().addShortcut(
@@ -409,6 +622,9 @@ class _AddShortcutScreenState extends State<AddShortcutScreen> {
           urlInput: _urlController.text,
           tags: _tags,
           isFavorite: _isFavorite,
+          isPrivate: _isPrivate,
+          customColorHex: _customColorHex,
+          customIconName: _customIconName,
         );
       }
 

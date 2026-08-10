@@ -5,10 +5,10 @@ class PermissionsScreen extends StatelessWidget {
 
   static const List<_PermissionEntry> _explicitPermissions = <_PermissionEntry>[
     _PermissionEntry(
-      title: 'None',
-      scope: 'Release app on Android phones',
+      title: 'Camera (android.permission.CAMERA)',
+      scope: 'Offline In-App QR Scanner',
       details:
-          'The released app declares no Android <uses-permission> entries and requests no runtime permissions.',
+          'Requested only when launching the in-app offline camera QR scanner to scan YouTube QR codes. Camera frames are processed strictly on-device using local vision ML kit, with zero network connections or telemetry.',
     ),
   ];
 
@@ -69,7 +69,7 @@ class PermissionsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'None. This app does not request runtime permission prompts.',
+                    'Camera permission is used exclusively for the optional in-app QR scanner. The app never requests internet access or background tracking permissions.',
                     style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
                   ),
                 ],

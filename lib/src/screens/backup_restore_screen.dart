@@ -165,11 +165,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Future<void> _runExport() async {
+    final ShortcutStore store = context.read<ShortcutStore>();
+    final String? passphrase = await _promptExportPassword();
+    if (passphrase == null) return;
+
     setState(() => _isExporting = true);
     try {
-      final BackupExportOutcome outcome = await context
-          .read<ShortcutStore>()
-          .exportShortcutsToFile();
+      final BackupExportOutcome outcome = await store.exportShortcutsToFile(
+        passphrase: passphrase,
+      );
       if (!mounted) return;
       switch (outcome) {
         case BackupExportSuccess(
@@ -198,6 +202,110 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         setState(() => _isExporting = false);
       }
     }
+  }
+
+  Future<String?> _promptExportPassword() async {
+    final TextEditingController passController = TextEditingController();
+    bool encrypt = false;
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('Export Backup'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  CheckboxListTile(
+                    title: const Text('Encrypt backup with password'),
+                    subtitle: const Text('Uses AES-256 encryption with PBKDF2'),
+                    value: encrypt,
+                    onChanged: (bool? val) {
+                      setDialogState(() => encrypt = val ?? false);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (encrypt)
+                    TextField(
+                      controller: passController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter Backup Password',
+                        hintText: 'Minimum 4 characters',
+                      ),
+                    ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (encrypt && passController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a password.'),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.of(
+                      dialogContext,
+                    ).pop(encrypt ? passController.text.trim() : '');
+                  },
+                  child: const Text('Export'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String?> _promptImportPassword() async {
+    final TextEditingController passController = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Encrypted Backup Detected'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Text(
+                'This backup file is encrypted. Enter the password used during export to decrypt it.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Backup Password',
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(passController.text.trim());
+              },
+              child: const Text('Decrypt & Import'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _confirmAndReplace() async {
@@ -230,9 +338,35 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   Future<void> _runImport(BackupImportMode mode) async {
     setState(() => _isImporting = true);
     try {
-      final BackupImportOutcome outcome = await context
-          .read<ShortcutStore>()
-          .importShortcutsFromFile(mode: mode);
+      final ShortcutStore store = context.read<ShortcutStore>();
+      final BackupFileReadResult? fileResult = await store.readBackupFromFile();
+      if (fileResult == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Import cancelled.')));
+        }
+        return;
+      }
+
+      String? passphrase;
+      if (store.backupService.isEncrypted(fileResult.contents)) {
+        passphrase = await _promptImportPassword();
+        if (passphrase == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Import cancelled.')));
+          }
+          return;
+        }
+      }
+
+      final BackupImportOutcome outcome = await store.importShortcutsFromFile(
+        mode: mode,
+        fileResultOverride: fileResult,
+        passphrase: passphrase,
+      );
       if (!mounted) return;
       switch (outcome) {
         case BackupImportSuccess success:

@@ -9,6 +9,7 @@ import 'core/config/config_service.dart';
 import 'src/about_constants.dart';
 import 'src/app_shell.dart';
 import 'src/backup_service.dart';
+import 'src/privacy_lock_store.dart';
 import 'src/share_intent_service.dart';
 import 'src/shortcut_models.dart';
 import 'src/shortcut_repository.dart';
@@ -40,15 +41,23 @@ Future<void> main() async {
     final AppConfig appConfig = await ConfigService().loadAndVerify(
       packageInfo: packageInfo,
     );
+    final SharedPreferencesShortcutRepository repository =
+        SharedPreferencesShortcutRepository(preferences);
+
     final ShortcutStore store = ShortcutStore(
-      repository: SharedPreferencesShortcutRepository(preferences),
+      repository: repository,
       formatter: const YoutubeUrlFormatter(),
       launcher: const YoutubeLauncherService(),
       backupService: const ShortcutBackupService(),
       backupGateway: AndroidBackupFileGateway(),
     );
 
+    final PrivacyLockStore privacyLockStore = PrivacyLockStore(
+      repository: repository,
+    );
+
     await store.load();
+    await privacyLockStore.load();
 
     final AboutInfo aboutInfo = AboutInfo(
       author: _authorLabel,
@@ -64,6 +73,7 @@ Future<void> main() async {
     runApp(
       ShortcutApp(
         store: store,
+        privacyLockStore: privacyLockStore,
         appConfig: appConfig,
         aboutInfo: aboutInfo,
         sharedTextSource: AndroidSharedTextSource(),

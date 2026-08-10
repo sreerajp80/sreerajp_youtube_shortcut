@@ -37,7 +37,11 @@ enum AppLayoutPreference {
 enum AppThemePreference {
   system('System'),
   light('Light'),
-  dark('Dark');
+  dark('Classic Dark'),
+  amoled('AMOLED Pure Black'),
+  warmSepia('Warm Sepia'),
+  forestDark('Forest Dark'),
+  cyberpunkNeon('Cyberpunk Neon');
 
   const AppThemePreference(this.label);
 
@@ -102,7 +106,10 @@ class ShortcutEntry {
     this.lastLaunchedAtIso,
     this.launchCount = 0,
     this.isFavorite = false,
+    this.isPrivate = false,
     this.tags = const <String>[],
+    this.customColorHex,
+    this.customIconName,
   });
 
   final String id;
@@ -115,7 +122,10 @@ class ShortcutEntry {
   final String? lastLaunchedAtIso;
   final int launchCount;
   final bool isFavorite;
+  final bool isPrivate;
   final List<String> tags;
+  final String? customColorHex;
+  final String? customIconName;
 
   DateTime get createdAt => DateTime.parse(createdAtIso);
   DateTime get updatedAt => DateTime.parse(updatedAtIso);
@@ -133,7 +143,12 @@ class ShortcutEntry {
     String? lastLaunchedAtIso,
     int? launchCount,
     bool? isFavorite,
+    bool? isPrivate,
     List<String>? tags,
+    String? customColorHex,
+    bool clearCustomColorHex = false,
+    String? customIconName,
+    bool clearCustomIconName = false,
   }) {
     return ShortcutEntry(
       id: id ?? this.id,
@@ -146,7 +161,14 @@ class ShortcutEntry {
       lastLaunchedAtIso: lastLaunchedAtIso ?? this.lastLaunchedAtIso,
       launchCount: launchCount ?? this.launchCount,
       isFavorite: isFavorite ?? this.isFavorite,
+      isPrivate: isPrivate ?? this.isPrivate,
       tags: tags ?? this.tags,
+      customColorHex: clearCustomColorHex
+          ? null
+          : (customColorHex ?? this.customColorHex),
+      customIconName: clearCustomIconName
+          ? null
+          : (customIconName ?? this.customIconName),
     );
   }
 
@@ -162,7 +184,10 @@ class ShortcutEntry {
       if (lastLaunchedAtIso != null) 'lastLaunchedAtIso': lastLaunchedAtIso,
       if (launchCount != 0) 'launchCount': launchCount,
       if (isFavorite) 'isFavorite': isFavorite,
+      if (isPrivate) 'isPrivate': isPrivate,
       if (tags.isNotEmpty) 'tags': tags,
+      if (customColorHex != null) 'customColorHex': customColorHex,
+      if (customIconName != null) 'customIconName': customIconName,
     };
   }
 
@@ -173,6 +198,7 @@ class ShortcutEntry {
         : (launchCountRaw is num ? launchCountRaw.toInt() : 0);
 
     final bool parsedIsFavorite = json['isFavorite'] as bool? ?? false;
+    final bool parsedIsPrivate = json['isPrivate'] as bool? ?? false;
     final List<dynamic>? rawTags = json['tags'] as List<dynamic>?;
     final List<String> parsedTags = rawTags != null
         ? rawTags.map((dynamic e) => e.toString()).toList(growable: false)
@@ -192,7 +218,10 @@ class ShortcutEntry {
       lastLaunchedAtIso: json['lastLaunchedAtIso'] as String?,
       launchCount: parsedLaunchCount < 0 ? 0 : parsedLaunchCount,
       isFavorite: parsedIsFavorite,
+      isPrivate: parsedIsPrivate,
       tags: parsedTags,
+      customColorHex: json['customColorHex'] as String?,
+      customIconName: json['customIconName'] as String?,
     );
   }
 }

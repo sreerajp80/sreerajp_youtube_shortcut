@@ -25,6 +25,22 @@ abstract class ShortcutRepository {
   Future<bool> loadFavoritesFirstPreference();
 
   Future<void> saveFavoritesFirstPreference(bool favoritesFirst);
+
+  Future<bool> loadAppLockEnabled();
+
+  Future<void> saveAppLockEnabled(bool enabled);
+
+  Future<bool> loadPrivateLockEnabled();
+
+  Future<void> savePrivateLockEnabled(bool enabled);
+
+  Future<String?> loadPinHash();
+
+  Future<void> savePinHash(String? hash);
+
+  Future<String?> loadPinSalt();
+
+  Future<void> savePinSalt(String? salt);
 }
 
 class SharedPreferencesShortcutRepository implements ShortcutRepository {
@@ -34,6 +50,10 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
 
   static const String _shortcutStorageKey = 'shortcut_entries_v1';
   static const String _themePreferenceStorageKey = 'app_theme_preference_v1';
+  static const String _appLockEnabledStorageKey = 'app_lock_enabled_v1';
+  static const String _privateLockEnabledStorageKey = 'private_lock_enabled_v1';
+  static const String _pinHashStorageKey = 'privacy_pin_hash_v1';
+  static const String _pinSaltStorageKey = 'privacy_pin_salt_v1';
 
   @override
   Future<List<ShortcutEntry>> loadShortcuts() async {
@@ -164,6 +184,54 @@ class SharedPreferencesShortcutRepository implements ShortcutRepository {
       );
     }
   }
+
+  @override
+  Future<bool> loadAppLockEnabled() async {
+    return _preferences.getBool(_appLockEnabledStorageKey) ?? false;
+  }
+
+  @override
+  Future<void> saveAppLockEnabled(bool enabled) async {
+    await _preferences.setBool(_appLockEnabledStorageKey, enabled);
+  }
+
+  @override
+  Future<bool> loadPrivateLockEnabled() async {
+    return _preferences.getBool(_privateLockEnabledStorageKey) ?? false;
+  }
+
+  @override
+  Future<void> savePrivateLockEnabled(bool enabled) async {
+    await _preferences.setBool(_privateLockEnabledStorageKey, enabled);
+  }
+
+  @override
+  Future<String?> loadPinHash() async {
+    return _preferences.getString(_pinHashStorageKey);
+  }
+
+  @override
+  Future<void> savePinHash(String? hash) async {
+    if (hash == null) {
+      await _preferences.remove(_pinHashStorageKey);
+    } else {
+      await _preferences.setString(_pinHashStorageKey, hash);
+    }
+  }
+
+  @override
+  Future<String?> loadPinSalt() async {
+    return _preferences.getString(_pinSaltStorageKey);
+  }
+
+  @override
+  Future<void> savePinSalt(String? salt) async {
+    if (salt == null) {
+      await _preferences.remove(_pinSaltStorageKey);
+    } else {
+      await _preferences.setString(_pinSaltStorageKey, salt);
+    }
+  }
 }
 
 class MemoryShortcutRepository implements ShortcutRepository {
@@ -177,6 +245,10 @@ class MemoryShortcutRepository implements ShortcutRepository {
   AppLayoutPreference _layoutPreference = AppLayoutPreference.grid;
   ShortcutSortPreference _sortPreference = ShortcutSortPreference.manual;
   bool _favoritesFirst = false;
+  bool _appLockEnabled = false;
+  bool _privateLockEnabled = false;
+  String? _pinHash;
+  String? _pinSalt;
 
   @override
   Future<List<ShortcutEntry>> loadShortcuts() async {
@@ -226,5 +298,37 @@ class MemoryShortcutRepository implements ShortcutRepository {
   @override
   Future<void> saveFavoritesFirstPreference(bool favoritesFirst) async {
     _favoritesFirst = favoritesFirst;
+  }
+
+  @override
+  Future<bool> loadAppLockEnabled() async => _appLockEnabled;
+
+  @override
+  Future<void> saveAppLockEnabled(bool enabled) async {
+    _appLockEnabled = enabled;
+  }
+
+  @override
+  Future<bool> loadPrivateLockEnabled() async => _privateLockEnabled;
+
+  @override
+  Future<void> savePrivateLockEnabled(bool enabled) async {
+    _privateLockEnabled = enabled;
+  }
+
+  @override
+  Future<String?> loadPinHash() async => _pinHash;
+
+  @override
+  Future<void> savePinHash(String? hash) async {
+    _pinHash = hash;
+  }
+
+  @override
+  Future<String?> loadPinSalt() async => _pinSalt;
+
+  @override
+  Future<void> savePinSalt(String? salt) async {
+    _pinSalt = salt;
   }
 }
