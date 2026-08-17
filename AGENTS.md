@@ -8,7 +8,7 @@ This file is read by AI agents and LLM coding assistants (Gemini, Antigravity, C
 
 | Field | Value |
 |-------|-------|
-| App name | SreerajP YouTube Shortcuts (`YT Shortcuts`) |
+| App name | SreerajP YouTube Shortcuts (used everywhere — no short form) |
 | Type | Local Android utility for turning YouTube links into quick-launch shortcuts |
 | Platform(s) | Android only (minSdk 24, targetSdk 35) |
 | Package / org id | `in.sreerajp.sreerajp_youtube_shortcut` |
@@ -31,8 +31,11 @@ Always consult the relevant document before making changes. The `docs/` folder i
 | `docs/architecture.md` | Changing app structure, adding screens, state, services, models, or repositories |
 | `docs/security.md` | Touching permissions, logging, storage, manifest, or binary protections |
 | `docs/release_process.md` | Building a release, versioning, or running the release checklist |
-| `docs/flutter_build_flavors_guide.md` | Any change to build config, signing, flavors, Gradle, or ProGuard |
-| `docs/flutter_project_engineering_standard.md` | Any code change — governs layer boundaries, naming, testing, and code quality rules |
+| `docs/guidelines/flutter_build_flavors_guide.md` | Any change to build config, signing, flavors, Gradle, or ProGuard |
+| `docs/guidelines/flutter_project_engineering_standard.md` | Any code change — governs layer boundaries, naming, testing, and code quality rules |
+| `docs/project_structure.md` | Orienting in the repo — the real file tree and layer table |
+| `docs/sreerajp_youtube_shortcut_idea.md` | Checking whether a feature already exists or is on the roadmap |
+| `docs/guidelines/guideline.md` | Folder layout, About-config pattern, keystore rules |
 | `docs/GUIDELINES_MANIFEST.md` | The shared Flutter guidelines index |
 
 ---
@@ -43,12 +46,15 @@ Always consult the relevant document before making changes. The `docs/` folder i
 2. No telemetry or analytics: No network, tracking, or cloud SDKs permitted.
 3. No privacy logging: Never log user-entered shortcut names or YouTube URLs.
 4. Scoped storage: Use system file picker / share intents; no broad storage permissions.
+5. Localized strings only: every user-visible string comes from `AppLocalizations`.
 
 ---
 
 ## Architecture Rules
 
-- Layout: Tier 1 layer-first layout under `lib/` (`core/`, `models/`, `repositories/`, `services/`, `screens/`, `widgets/`, `main.dart`). Do not restructure without explicit instruction.
+- Layout: Tier 1 layer-first layout under `lib/`: `app/` (shell + theme), `core/` (`config/`, `constants/`, `errors/`), `l10n/`, `models/`, `repositories/`, `services/`, `state/`, `screens/`, `widgets/`, `main.dart`. Do not restructure without explicit instruction. `lib/src/` must not come back — that is package convention, not app convention.
+- State folder: `state/` holds every `ChangeNotifier`. Do not add a parallel `providers/`.
+- `lib/core/config/` is a fixed path required by `docs/guidelines/guideline.md` §1. Never move or rename it.
 - Layer boundaries: widgets must not know about `SharedPreferences`, intent details, or URL parsing. Services must not know about `BuildContext` or widget state.
 - Error hierarchy: use sealed exceptions in `lib/core/errors/`. Do not throw raw strings or generic `Exception`.
 
@@ -64,12 +70,16 @@ flutter analyze                        # static analysis (must be clean)
 flutter test                           # run all tests
 dart format --output=none --set-exit-if-changed .  # check formatting
 
-# Production release APK (split per ABI, requires android/keystore.properties)
+flutter gen-l10n                       # regenerate AppLocalizations after editing an .arb file
+
+# Production release APK (split per ABI, requires android/key.properties)
 flutter build apk --flavor prod --release \
-  --dart-define=FLUTTER_APP_FLAVOR=prod \
   --obfuscate --split-debug-info=build/symbols/android-<version>/ --split-per-abi \
   --dart-define=APP_BUILD_DATE=<YYYY-MM-DD> --dart-define=APP_AI_USED=<AI_LABEL>
 ```
+
+> Never pass `--dart-define=FLUTTER_APP_FLAVOR`. That name is owned by the framework and the
+> current Flutter SDK rejects the build outright. `--flavor prod` sets it for you.
 
 ---
 
@@ -77,17 +87,17 @@ flutter build apk --flavor prod --release \
 
 | Flavor | App ID | Display Name | Signing |
 |--------|--------|--------------|---------|
-| `dev` | `in.sreerajp.sreerajp_youtube_shortcut.dev` | YT Shortcuts Dev | Debug keystore (automatic) |
-| `prod` | `in.sreerajp.sreerajp_youtube_shortcut` | YT Shortcuts | Release keystore (`android/keystore.properties`) |
+| `dev` | `in.sreerajp.sreerajp_youtube_shortcut.dev` | SreerajP YouTube Shortcuts Dev | Debug keystore (automatic) |
+| `prod` | `in.sreerajp.sreerajp_youtube_shortcut` | SreerajP YouTube Shortcuts | Release keystore (`android/key.properties`) |
 
-Debug builds never need a signing key. `prod --release` is blocked by a Gradle guard if `android/keystore.properties` is absent.
+Debug builds never need a signing key. `prod --release` is blocked by a Gradle guard if `android/key.properties` is absent.
 
 ---
 
 ## Signing / Keystore
 
-- Keystore configuration: defined in `android/keystore.properties` (gitignored).
-- `.gitignore` must include: `key.properties`, `keystore.properties`, `*.jks`, `*.keystore`, `build/symbols/`.
+- Keystore configuration: defined in `android/key.properties` (gitignored).
+- `.gitignore` must include: `key.properties`, `*.jks`, `*.keystore`, `build/symbols/`.
 
 ---
 
@@ -97,6 +107,22 @@ Debug builds never need a signing key. `prod --release` is blocked by a Gradle g
 - Request only necessary permissions; never add `INTERNET` or broad storage permissions.
 - `android:allowBackup="false"` must remain in `AndroidManifest.xml`.
 - All release builds must include `--obfuscate` and `--split-debug-info`.
+
+---
+
+## Localization Rules
+
+- All user-visible text comes from `lib/l10n/app_en.arb` via `AppLocalizations` — never a raw
+  string literal in a widget. This applies even though the app ships only English.
+- `l10n.yaml` (project root) and `lib/l10n/app_en.arb` must exist. Run `flutter gen-l10n` after
+  editing any `.arb` file. The generated files land in `lib/l10n/` and are committed.
+- Every ARB key needs an `@key` description entry.
+- Literals are allowed only for: log messages, non-UI exception messages, asset paths, route
+  names, map/JSON keys, and stored data values (tag text, icon keys, colour hex).
+- Enum display names live in `lib/l10n/model_labels.dart` as `label(l10n)` extensions. Models
+  must not carry UI copy.
+- Dates and times are formatted with `intl`'s `DateFormat` using the active locale, never by
+  hand-assembling month names.
 
 ---
 
@@ -110,7 +136,7 @@ Debug builds never need a signing key. `prod --release` is blocked by a Gradle g
 
 ## Testing Rules
 
-- Mirror `lib/` structure in `test/`.
+- Mirror `lib/` structure in `test/` (`test/models/`, `test/services/`, `test/state/`).
 - Add unit or widget tests whenever changing services, models, parsers, or store logic.
 - Verify zero failing tests with `flutter test`.
 
@@ -128,13 +154,16 @@ Debug builds never need a signing key. `prod --release` is blocked by a Gradle g
 ```
 AGENTS.md            # project instructions for AI agents / LLMs
 CLAUDE.md            # project instructions for Claude Code
+l10n.yaml            # ARB → AppLocalizations generator settings
 docs/                # design docs & Flutter guidelines submodule
 plans/               # change plans
 change_log/          # change logs
 assets/config/       # app_config.json (About screen metadata)
-lib/                 # app source code
-test/                # test suite
+lib/                 # app source code (see docs/project_structure.md)
+test/                # test suite, mirroring lib/
 ```
+
+Full tree and layer responsibilities: `docs/project_structure.md`.
 
 ---
 
@@ -159,4 +188,4 @@ Create `plans/` and `change_log/` if they do not exist.
 ## What AI Agents Must Always / Never Do
 
 **Always:** Read this file first; check layer boundaries; verify format, analyze, and test after edits.
-**Never:** Put business or parsing logic in a widget; add network permissions; log user shortcuts or URLs.
+**Never:** Put business or parsing logic in a widget; add network permissions; log user shortcuts or URLs; hard-code a user-visible string; recreate `lib/src/`.

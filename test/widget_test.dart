@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:sreerajp_youtube_shortcut/src/app_shell.dart';
-import 'package:sreerajp_youtube_shortcut/src/shortcut_models.dart';
-import 'package:sreerajp_youtube_shortcut/src/shortcut_repository.dart';
-import 'package:sreerajp_youtube_shortcut/src/shortcut_store.dart';
-import 'package:sreerajp_youtube_shortcut/src/youtube_launcher_service.dart';
-import 'package:sreerajp_youtube_shortcut/src/youtube_url_formatter.dart';
+import 'package:sreerajp_youtube_shortcut/app/app_shell.dart';
+import 'package:sreerajp_youtube_shortcut/models/shortcut_models.dart';
+import 'package:sreerajp_youtube_shortcut/repositories/shortcut_repository.dart';
+import 'package:sreerajp_youtube_shortcut/state/shortcut_store.dart';
+import 'package:sreerajp_youtube_shortcut/services/youtube_launcher_service.dart';
+import 'package:sreerajp_youtube_shortcut/services/youtube_url_formatter.dart';
 
 void main() {
   testWidgets('renders the empty shortcut state', (WidgetTester tester) async {

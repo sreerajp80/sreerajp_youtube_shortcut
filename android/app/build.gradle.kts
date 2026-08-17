@@ -44,7 +44,7 @@ plugins {
 }
 
 // ─── Signing ──────────────────────────────────────────────────────────────────
-val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keyPropertiesFile = rootProject.file("key.properties")
 val pubspecVersion = readPubspecVersion()
 val buildDateFormatter = SimpleDateFormat("yyyy-MM-dd").apply { timeZone = TimeZone.getTimeZone("UTC") }
 val buildDate = buildDateFormatter.format(Date())
@@ -81,9 +81,9 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
+            if (keyPropertiesFile.exists()) {
                 val props = Properties()
-                props.load(keystorePropertiesFile.inputStream())
+                props.load(keyPropertiesFile.inputStream())
                 keyAlias      = props.getProperty("keyAlias")
                 keyPassword   = props.getProperty("keyPassword")
                 storeFile     = file(props.getProperty("storeFile"))
@@ -99,7 +99,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists()) {
+            if (keyPropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -114,30 +114,30 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
-            resValue("string", "app_name", "YT Shortcuts Dev")
+            resValue("string", "app_name", "SreerajP YouTube Shortcuts Dev")
         }
         create("prod") {
             dimension = "environment"
-            resValue("string", "app_name", "YT Shortcuts")
+            resValue("string", "app_name", "SreerajP YouTube Shortcuts")
         }
     }
 }
 
 // ─── Signing enforcement ──────────────────────────────────────────────────────
-// Blocks prod --release tasks at execution time when keystore.properties is absent.
+// Blocks prod --release tasks at execution time when key.properties is absent.
 // Uses tasks.matching so lazily registered AGP tasks are covered.
 // Debug builds are never blocked — they use the SDK debug keystore automatically.
 afterEvaluate {
     tasks.matching { it.name == "assembleProdRelease" || it.name == "bundleProdRelease" }
         .configureEach {
             doFirst {
-                if (!keystorePropertiesFile.exists()) {
+                if (!keyPropertiesFile.exists()) {
                     throw GradleException(
                         "\n" +
                         "══════════════════════════════════════════════════════════\n" +
                         "  SIGNING REQUIRED — prod --release build blocked         \n" +
                         "══════════════════════════════════════════════════════════\n" +
-                        "  android/keystore.properties not found.                  \n" +
+                        "  android/key.properties not found.                       \n" +
                         "  Create the file with your release keystore credentials. \n" +
                         "  See docs/flutter_build_flavors_guide.md                 \n" +
                         "  Section: Android Signing Configuration                  \n" +

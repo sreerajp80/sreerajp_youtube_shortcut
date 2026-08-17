@@ -11,10 +11,19 @@ Read [security.md](security.md) for full offline security guidelines.
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `flutter` | SDK | Framework UI foundation |
+| `flutter_localizations` | SDK | Localization delegates required by `AppLocalizations` |
+| `intl` | `any` | Locale-aware date and time formatting (version pinned by `flutter_localizations`) |
 | `provider` | `^6.1.5+1` | State management (`ChangeNotifierProvider`, `Provider`) |
 | `shared_preferences` | `^2.5.5` | Persistent local key-value JSON storage |
 | `package_info_plus` | `^9.0.1` | Reads platform version and build number for verification |
 | `android_intent_plus` | `^6.0.0` | Explicit Android intent launcher to open YouTube |
+| `image_picker` | `^1.1.2` | Picks a QR image from the gallery (system picker only) |
+| `mobile_scanner` | `^7.4.0` | On-device camera QR scanning, no network |
+| `qr_flutter` | `^4.1.0` | Renders shortcut and backup QR codes |
+| `crypto` | `^3.0.6` | Hashing for the privacy-lock PIN |
+| `encrypt` | `^5.0.3` | AES-256 encryption for password-protected backups |
+| `pointycastle` | `^3.9.1` | PBKDF2 key derivation for backup encryption |
+| `local_auth` | `^2.3.0` | Biometric unlock for the privacy lock |
 
 ## 2. Approved Development Dependencies
 

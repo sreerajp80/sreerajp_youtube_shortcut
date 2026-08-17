@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.4.15+20
+version: 1.5.1+22
 
 environment:
   sdk: ^3.12.2
@@ -31,7 +31,10 @@ dependencies:
   android_intent_plus: ^6.0.0
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   image_picker: ^1.1.2
+  intl: any
   mobile_scanner: ^7.4.0
   package_info_plus: ^9.0.1
   crypto: ^3.0.6
@@ -66,6 +69,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Generates AppLocalizations from lib/l10n/*.arb (settings in l10n.yaml).
+  generate: true
 
   assets:
     - assets/config/

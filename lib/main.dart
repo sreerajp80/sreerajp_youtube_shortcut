@@ -4,18 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/config/app_config.dart';
-import 'core/config/config_service.dart';
-import 'src/about_constants.dart';
-import 'src/app_shell.dart';
-import 'src/backup_service.dart';
-import 'src/privacy_lock_store.dart';
-import 'src/share_intent_service.dart';
-import 'src/shortcut_models.dart';
-import 'src/shortcut_repository.dart';
-import 'src/shortcut_store.dart';
-import 'src/youtube_launcher_service.dart';
-import 'src/youtube_url_formatter.dart';
+import 'package:sreerajp_youtube_shortcut/core/config/app_config.dart';
+import 'package:sreerajp_youtube_shortcut/core/config/config_service.dart';
+import 'package:sreerajp_youtube_shortcut/core/constants/about_constants.dart';
+import 'package:sreerajp_youtube_shortcut/app/app_shell.dart';
+import 'package:sreerajp_youtube_shortcut/services/backup_service.dart';
+import 'package:sreerajp_youtube_shortcut/state/privacy_lock_store.dart';
+import 'package:sreerajp_youtube_shortcut/services/share_intent_service.dart';
+import 'package:sreerajp_youtube_shortcut/models/shortcut_models.dart';
+import 'package:sreerajp_youtube_shortcut/repositories/shortcut_repository.dart';
+import 'package:sreerajp_youtube_shortcut/state/shortcut_store.dart';
+import 'package:sreerajp_youtube_shortcut/services/youtube_launcher_service.dart';
+import 'package:sreerajp_youtube_shortcut/services/youtube_url_formatter.dart';
 
 const String _authorLabel = String.fromEnvironment(
   'APP_AUTHOR',
@@ -82,12 +82,7 @@ Future<void> main() async {
   } catch (error, stackTrace) {
     debugPrint('Bootstrap failure: $error');
     debugPrintStack(stackTrace: stackTrace);
-    runApp(
-      const FatalApp(
-        details:
-            'The app could not finish startup. Check local storage and package metadata.',
-      ),
-    );
+    runApp(const FatalApp());
   }
 }
 

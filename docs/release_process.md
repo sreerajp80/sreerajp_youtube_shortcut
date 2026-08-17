@@ -69,9 +69,9 @@ the first externally shared release.
 | `prod` | `release apk` | Release keystore required | Internal installable artifact | See section 9 |
 | `prod` | `release app bundle` | Release keystore required | Store-ready artifact | See section 9 |
 
-Debug builds (`*--debug`) do not require `android/keystore.properties`. The SDK debug keystore is
-applied automatically. `prod --release` is blocked by a Gradle guard if `keystore.properties` is
-absent — see `docs/flutter_build_flavors_guide.md §Android Signing Configuration`.
+Debug builds (`*--debug`) do not require `android/key.properties`. The SDK debug keystore is
+applied automatically. `prod --release` is blocked by a Gradle guard if `key.properties` is
+absent — see `docs/guidelines/flutter_build_flavors_guide.md §Android Signing Configuration`.
 
 ---
 

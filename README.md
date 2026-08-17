@@ -99,10 +99,10 @@ lib/
 
 | Flavor | App ID | Display Name | Typical Use | Signing |
 |--------|--------|--------------|-------------|---------|
-| `dev` | `in.sreerajp.sreerajp_youtube_shortcut.dev` | `YT Shortcuts Dev` | Local dev and QA | Debug keystore (automatic for debug) |
-| `prod` | `in.sreerajp.sreerajp_youtube_shortcut` | `YT Shortcuts` | Release artifacts | Release keystore required for `prod --release` |
+| `dev` | `in.sreerajp.sreerajp_youtube_shortcut.dev` | `SreerajP YouTube Shortcuts Dev` | Local dev and QA | Debug keystore (automatic for debug) |
+| `prod` | `in.sreerajp.sreerajp_youtube_shortcut` | `SreerajP YouTube Shortcuts` | Release artifacts | Release keystore required for `prod --release` |
 
-`prod --release` is intentionally blocked if `android/keystore.properties` is missing.
+`prod --release` is intentionally blocked if `android/key.properties` is missing.
 
 ## Security Model
 
@@ -153,7 +153,7 @@ flutter run --profile --flavor dev --dart-define=FLUTTER_APP_FLAVOR=dev
 
 ## Release Build Commands (Android)
 
-`prod --release` requires `android/keystore.properties`.
+`prod --release` requires `android/key.properties`.
 
 APK (split per ABI):
 
@@ -226,8 +226,8 @@ About data is assembled from:
 ## Key Documentation
 
 - [docs/architecture.md](docs/architecture.md)
-- [docs/flutter_project_engineering_standard.md](docs/flutter_project_engineering_standard.md)
-- [docs/flutter_build_flavors_guide.md](docs/flutter_build_flavors_guide.md)
+- [docs/guidelines/flutter_project_engineering_standard.md](docs/guidelines/flutter_project_engineering_standard.md)
+- [docs/guidelines/flutter_build_flavors_guide.md](docs/guidelines/flutter_build_flavors_guide.md)
 - [docs/release_process.md](docs/release_process.md)
 - [docs/security.md](docs/security.md)
 - [AGENTS.md](AGENTS.md)
@@ -235,7 +235,7 @@ About data is assembled from:
 ## Troubleshooting
 
 - `SIGNING REQUIRED - prod --release build blocked`
-  - Create `android/keystore.properties` with release keystore values.
+  - Create `android/key.properties` with release keystore values.
 - `Only YouTube links are supported in this app.`
   - Use one of the supported host/path formats listed above.
 - `The YouTube app could not be opened...`

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'app_config.dart';
+import 'package:sreerajp_youtube_shortcut/core/config/app_config.dart';
 
 class ConfigService {
   static const String assetPath = 'assets/config/app_config.json';
