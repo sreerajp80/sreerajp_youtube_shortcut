@@ -1335,4 +1335,536 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errFavoritesFirstSaveFailed =>
       'Favorites-first preference could not be saved locally.';
+
+  @override
+  String get settingsAppearanceTitle => 'Appearance';
+
+  @override
+  String get settingsAppearanceSubtitle =>
+      'Theme mode, color schemes, and visual preferences.';
+
+  @override
+  String get settingsFeaturesTitle => 'Features';
+
+  @override
+  String get settingsFeaturesSubtitle =>
+      'Explore all features of SreerajP YouTube Shortcuts.';
+
+  @override
+  String get settingsHelpTitle => 'Help & User Guides';
+
+  @override
+  String get settingsHelpSubtitle =>
+      'How to create shortcuts, QR transfers, and troubleshooting.';
+
+  @override
+  String get appearanceScreenTitle => 'Appearance';
+
+  @override
+  String get appearanceHeroTitle => 'Visual Customization';
+
+  @override
+  String get appearanceHeroBody =>
+      'Customize your app theme mode, color palettes, and visual presentation with curated contrast themes.';
+
+  @override
+  String get appearanceThemeSectionTitle => 'Theme Mode';
+
+  @override
+  String get appearanceThemeSectionSubtitle =>
+      'Select your preferred color scheme and contrast style';
+
+  @override
+  String get featuresScreenTitle => 'Features';
+
+  @override
+  String get featuresHeroTitle => 'SreerajP YouTube Shortcuts Features';
+
+  @override
+  String get featuresHeroBody =>
+      'Explore every quick-launch tool, privacy safeguard, and air-gapped utility designed for you.';
+
+  @override
+  String get featuresCatQuickLaunch => 'Quick-Launch & Playback';
+
+  @override
+  String get featuresCatQuickLaunchSub =>
+      'Instant YouTube launches, smart handle routing, and URL parsing';
+
+  @override
+  String get featureInstantLaunchTitle => 'Instant YouTube Launch Intent';
+
+  @override
+  String get featureInstantLaunchDesc =>
+      'Launch directly into the official YouTube Android application with a single tap, bypassing browser overhead and redirects.';
+
+  @override
+  String get featureCanonicalUrlTitle => 'Canonical URL Normalization';
+
+  @override
+  String get featureCanonicalUrlDesc =>
+      'Converts messy desktop, mobile, tracking-parameter, or shortened links into clean canonical YouTube URLs.';
+
+  @override
+  String get featureHandleRoutingTitle => 'Channel Handle @-Routing';
+
+  @override
+  String get featureHandleRoutingDesc =>
+      'Enter bare handles like @ChannelName to automatically format and route to live streams or channel homepages.';
+
+  @override
+  String get featureMultiTypeTitle => 'Multi-Type Recognition';
+
+  @override
+  String get featureMultiTypeDesc =>
+      'Intelligently identifies and badges standard Videos, YouTube Shorts, Playlists, and Channel streams.';
+
+  @override
+  String get featureClipboardPasteTitle => 'Offline Clipboard Detection';
+
+  @override
+  String get featureClipboardPasteDesc =>
+      'Automatically detects valid YouTube links on your clipboard when opening the add screen for 1-tap pasting.';
+
+  @override
+  String get featuresCatOrganization => 'Organization & Visual Styling';
+
+  @override
+  String get featuresCatOrganizationSub =>
+      'Color themes, custom card icons, tags, and flexible layouts';
+
+  @override
+  String get featureThemePresetsTitle => '7 Curated Theme Palettes';
+
+  @override
+  String get featureThemePresetsDesc =>
+      'Choose between Light, Dark, AMOLED Pure Black, Warm Sepia, Forest Dark, Cyberpunk Neon, or System default.';
+
+  @override
+  String get featureCustomColorsTitle => 'Custom Card Accent Colors';
+
+  @override
+  String get featureCustomColorsDesc =>
+      'Pick vibrant custom color accents for individual shortcut cards so your favorite creators stand out.';
+
+  @override
+  String get featureCustomIconsTitle => 'Custom Card Icons & Initials';
+
+  @override
+  String get featureCustomIconsDesc =>
+      'Assign distinct icons or initials to cards for immediate visual identification across your shelf.';
+
+  @override
+  String get featureTagsSearchTitle => 'Custom Tags & Instant Search';
+
+  @override
+  String get featureTagsSearchDesc =>
+      'Add tags to categorize shortcuts by topic (Tech, Music, News) and filter in real-time with instant search.';
+
+  @override
+  String get featureReorderLayoutsTitle => 'Drag-and-Drop Reorder & Layouts';
+
+  @override
+  String get featureReorderLayoutsDesc =>
+      'Manually reorder shortcut cards with fluid drag-and-drop, and switch between rich Grid and dense List views.';
+
+  @override
+  String get featuresCatQrSystem => 'Air-Gapped QR Code System';
+
+  @override
+  String get featuresCatQrSystemSub =>
+      'Share and migrate shortcuts between devices with zero internet or cloud';
+
+  @override
+  String get featureAirGappedQrTitle => 'Air-Gapped Single Shortcut QR';
+
+  @override
+  String get featureAirGappedQrDesc =>
+      'Generate instant offline QR codes for any shortcut that can be scanned by any standard QR reader or camera.';
+
+  @override
+  String get featureAnimatedQrBackupTitle =>
+      'Animated Multi-Frame Backup QR Streaming';
+
+  @override
+  String get featureAnimatedQrBackupDesc =>
+      'Stream your entire shortcut collection and settings across devices using animated fountain QR frames with zero cables or network.';
+
+  @override
+  String get featureOfflineQrScannerTitle => 'Offline On-Device QR Scanner';
+
+  @override
+  String get featureOfflineQrScannerDesc =>
+      'Built-in offline camera scanner with torch controls, multi-camera toggle, and instant gallery image scanning.';
+
+  @override
+  String get featuresCatPrivacy => 'Privacy, Vault & Security';
+
+  @override
+  String get featuresCatPrivacySub =>
+      'Biometric security, PIN lock, and strictly offline architecture';
+
+  @override
+  String get featurePinBiometricsTitle => 'Biometric & App PIN Lock';
+
+  @override
+  String get featurePinBiometricsDesc =>
+      'Gate app startup with your fingerprint, face unlock, or a secure 4–6 digit security PIN.';
+
+  @override
+  String get featurePrivateVaultTitle => 'Private Shortcuts Vault';
+
+  @override
+  String get featurePrivateVaultDesc =>
+      'Mark sensitive shortcuts as private. They remain hidden until unlocked with your PIN or biometrics.';
+
+  @override
+  String get featureStrictOfflineTitle => 'Strict Zero-Network Architecture';
+
+  @override
+  String get featureStrictOfflineDesc =>
+      'The app contains no INTERNET permission, no cloud SDKs, no analytics, and no telemetry. All data stays strictly on your device.';
+
+  @override
+  String get featuresCatBackup => 'Local Backup & Data Portability';
+
+  @override
+  String get featuresCatBackupSub =>
+      'Standard JSON exports, strong encryption, and seamless restore';
+
+  @override
+  String get featureJsonExportImportTitle => 'Local JSON Backup & Restore';
+
+  @override
+  String get featureJsonExportImportDesc =>
+      'Export your shortcuts to a standardized JSON file using Android Storage Access Framework with zero broad storage permissions.';
+
+  @override
+  String get featureEncryptedBackupTitle =>
+      'AES-256 PBKDF2 Password Encryption';
+
+  @override
+  String get featureEncryptedBackupDesc =>
+      'Protect exported backup files with industrial-grade AES-256-GCM encryption and PBKDF2 key derivation.';
+
+  @override
+  String get featureMergeReplaceModesTitle => 'Merge & Replace Restore Modes';
+
+  @override
+  String get featureMergeReplaceModesDesc =>
+      'Choose between safely merging imported shortcuts with existing ones or performing a clean full restore.';
+
+  @override
+  String get helpScreenTitle => 'Help & User Guides';
+
+  @override
+  String get helpHeroTitle => 'SreerajP YouTube Shortcuts Help';
+
+  @override
+  String get helpHeroBody =>
+      'Everything you need to know about creating shortcuts, URL formats, offline QR sharing, and security.';
+
+  @override
+  String get helpCatGettingStarted => 'Basics & Navigation';
+
+  @override
+  String get helpCatAdvancedSharing => 'QR Sharing & Backups';
+
+  @override
+  String get helpCatPrivacySecurity => 'Privacy & Security';
+
+  @override
+  String get helpCatFaq => 'Frequently Asked Questions';
+
+  @override
+  String get helpTopicGettingStartedTitle => 'Creating & Managing Shortcuts';
+
+  @override
+  String get helpTopicGettingStartedSub =>
+      'How to add shortcuts, paste links, customize colors/icons, and launch directly.';
+
+  @override
+  String get helpTopicHandlesTitle => 'Channel Handles & Live Streams';
+
+  @override
+  String get helpTopicHandlesSub =>
+      'How \'@\' handle shortcuts work, /live stream routing, and fallback behavior.';
+
+  @override
+  String get helpTopicQrSharingTitle => 'Air-Gapped QR Transfer';
+
+  @override
+  String get helpTopicQrSharingSub =>
+      'Sharing individual shortcuts and streaming entire backups with animated QR codes.';
+
+  @override
+  String get helpTopicVaultTitle => 'PIN, Biometrics & Vault';
+
+  @override
+  String get helpTopicVaultSub =>
+      'Setting up app lock, hiding private shortcuts, and offline security guarantees.';
+
+  @override
+  String get helpTopicBackupTitle => 'Encrypted Backup & Migration';
+
+  @override
+  String get helpTopicBackupSub =>
+      'Exporting JSON backups, password encryption, and moving data to a new device.';
+
+  @override
+  String get helpTopicFaqTitle => 'FAQs & Troubleshooting Guide';
+
+  @override
+  String get helpTopicFaqSub =>
+      'Direct answers to common questions about permissions, launch issues, and offline storage.';
+
+  @override
+  String get helpGettingStartedTitle => 'Creating & Managing Shortcuts';
+
+  @override
+  String get helpGettingStartedIntro =>
+      'Learn how to create, customize, and organize your favorite YouTube shortcuts for rapid 1-tap launching.';
+
+  @override
+  String get helpSecAddingShortcuts => 'Adding Shortcuts';
+
+  @override
+  String get helpFaqAddHow => 'How do I add a new shortcut?';
+
+  @override
+  String get helpFaqAddHowAns =>
+      'Tap the \'+\' floating action button on the home screen. Enter a memorable shortcut name, and paste any YouTube link or enter a channel handle. The app automatically cleans and formats the destination URL.';
+
+  @override
+  String get helpFaqClipboard => 'How does clipboard paste detection work?';
+
+  @override
+  String get helpFaqClipboardAns =>
+      'When you copy a YouTube link in your browser or YouTube app and open Add Shortcut, the app checks your clipboard locally and presents a 1-tap \'Paste\' button to fill the URL instantly.';
+
+  @override
+  String get helpSecCustomizing => 'Customizing & Organizing';
+
+  @override
+  String get helpFaqColorsIcons => 'Can I customize card colors and icons?';
+
+  @override
+  String get helpFaqColorsIconsAns =>
+      'Yes! When creating or editing a shortcut, expand the Custom Accent Color and Custom Icon sections to assign distinctive colors and icons (like Star, Play, Music, Gaming, Tech, and more).';
+
+  @override
+  String get helpFaqTags => 'How do tags work?';
+
+  @override
+  String get helpFaqTagsAns =>
+      'Add tags like \'#Music\', \'#Tutorial\', or \'#News\' to categorize your shortcuts. You can tap on tags or use the search bar to filter your shortcut library in real time.';
+
+  @override
+  String get helpFaqReorder => 'How do I reorder shortcuts on the home screen?';
+
+  @override
+  String get helpFaqReorderAns =>
+      'Ensure your sort mode is set to \'Manual order\' (tap the sort icon in the app bar), then choose \'Reorder shortcuts\' from the overflow menu. Long-press and drag cards into your desired position.';
+
+  @override
+  String get helpHandlesTitle => 'Channel Handles & Live Streams';
+
+  @override
+  String get helpHandlesIntro =>
+      'Understand how SreerajP YouTube Shortcuts formats channel handles and routes directly to live streams or channels.';
+
+  @override
+  String get helpSecHandleSyntax => 'Handle Syntax & Formatting';
+
+  @override
+  String get helpFaqHandleFormat => 'What format should I use for handles?';
+
+  @override
+  String get helpFaqHandleFormatAns =>
+      'You can enter either \'@ChannelHandle\' or simply \'ChannelHandle\'. The app validates the handle shape (3–30 letters, numbers, dots, dashes, underscores) and converts it to https://www.youtube.com/@handle/live.';
+
+  @override
+  String get helpSecHandleBehavior => 'Live vs Non-Live Channels';
+
+  @override
+  String get helpFaqLiveRouting => 'What happens if the channel is not live?';
+
+  @override
+  String get helpFaqLiveRoutingAns =>
+      'Because the app operates 100% offline, it hands the URL directly to the YouTube app. If the channel is streaming, YouTube loads the stream. If not, YouTube will show scheduled streams, recent videos, or the channel\'s main tab.';
+
+  @override
+  String get helpFaqChannelHome =>
+      'How do I link directly to a channel page instead of /live?';
+
+  @override
+  String get helpFaqChannelHomeAns =>
+      'To open the channel home page rather than the live stream, enter the full URL: https://www.youtube.com/@ChannelHandle.';
+
+  @override
+  String get helpQrSharingTitle => 'Air-Gapped QR Transfer';
+
+  @override
+  String get helpQrSharingIntro =>
+      'Share shortcuts and migrate your entire collection between devices with zero cables, internet, or cloud servers.';
+
+  @override
+  String get helpSecSingleQr => 'Sharing Individual Shortcuts';
+
+  @override
+  String get helpFaqShareSingle =>
+      'How do I share a single shortcut via QR code?';
+
+  @override
+  String get helpFaqShareSingleAns =>
+      'Open the shortcut\'s detail screen or long-press on a shortcut card and tap the QR icon. An air-gapped QR code containing the shortcut name and destination URL will appear. Any device can scan it to save or open the link.';
+
+  @override
+  String get helpSecBulkQr => 'Animated Multi-Frame Backup Streaming';
+
+  @override
+  String get helpFaqAnimatedQr => 'How does animated QR backup work?';
+
+  @override
+  String get helpFaqAnimatedQrAns =>
+      'Under Settings → Backup & Restore, tap \'Export via QR code\'. The app chunks your entire shortcut collection and settings into an animated sequence of QR codes. On your new phone, open the Offline QR Scanner and hold the camera steady to assemble the full backup.';
+
+  @override
+  String get helpFaqGalleryScan =>
+      'Can I scan a QR code from a screenshot or photo?';
+
+  @override
+  String get helpFaqGalleryScanAns =>
+      'Yes! Open the in-app scanner and tap \'Scan Image from Gallery\' to select any screenshot or photo containing a YouTube QR code. The image is processed entirely on-device using local vision ML kit.';
+
+  @override
+  String get helpVaultTitle => 'PIN, Biometrics & Security';
+
+  @override
+  String get helpVaultIntro =>
+      'Configure PIN protection, fingerprint authentication, and keep private shortcuts shielded from prying eyes.';
+
+  @override
+  String get helpSecPinSetup => 'Security PIN & Biometrics';
+
+  @override
+  String get helpFaqPinSetup => 'How do I set up a Security PIN?';
+
+  @override
+  String get helpFaqPinSetupAns =>
+      'Go to Settings → Privacy & Security, tap \'Set PIN\', and enter a 4 to 6 digit security code. Once configured, you can enable App Lock and Private Shortcut Lock.';
+
+  @override
+  String get helpFaqBiometrics =>
+      'Does the app support Fingerprint and Face Unlock?';
+
+  @override
+  String get helpFaqBiometricsAns =>
+      'Yes. When biometric hardware is available on your Android device, you can tap the fingerprint icon on the lock screen for instant authentication.';
+
+  @override
+  String get helpSecPrivateVault => 'Private Shortcuts Vault';
+
+  @override
+  String get helpFaqPrivateShortcuts =>
+      'What does marking a shortcut as \'Private\' do?';
+
+  @override
+  String get helpFaqPrivateShortcutsAns =>
+      'When \'Lock Private Shortcuts\' is enabled, any shortcut flagged as private is hidden from the main list. You must authenticate to reveal and launch private shortcuts.';
+
+  @override
+  String get helpFaqOfflineGuarantee =>
+      'Are my shortcuts or PIN ever uploaded to the cloud?';
+
+  @override
+  String get helpFaqOfflineGuaranteeAns =>
+      'Never. SreerajP YouTube Shortcuts does not have the Android INTERNET permission. Your shortcuts, launch history, and cryptographic PIN hashes reside strictly in local on-device encrypted storage.';
+
+  @override
+  String get helpBackupTitle => 'Encrypted Backup & Migration';
+
+  @override
+  String get helpBackupIntro =>
+      'Learn how to export JSON backups, encrypt them with AES-256, and safely migrate your data to a new device.';
+
+  @override
+  String get helpSecExportImport => 'JSON File Backup';
+
+  @override
+  String get helpFaqExportFile => 'How do I export my shortcuts to a file?';
+
+  @override
+  String get helpFaqExportFileAns =>
+      'Navigate to Settings → Backup & Restore and tap \'Export to file\'. Android\'s system file picker opens, allowing you to choose any folder (Downloads, USB drive, SD card) to save the backup .json file.';
+
+  @override
+  String get helpFaqEncryption => 'How does backup password encryption work?';
+
+  @override
+  String get helpFaqEncryptionAns =>
+      'When exporting, check \'Encrypt backup with password\'. The app uses AES-256-GCM authenticated encryption with a key derived via PBKDF2 (100,000 iterations). Without the password, no one can read the file.';
+
+  @override
+  String get helpSecRestoreModes => 'Restoring & Merging';
+
+  @override
+  String get helpFaqMergeVsReplace =>
+      'What is the difference between \'Merge\' and \'Replace\'?';
+
+  @override
+  String get helpFaqMergeVsReplaceAns =>
+      '\'Import & merge\' adds any new shortcuts from the backup file into your existing list while preserving your current shortcuts. \'Import & replace\' clears your existing library first and replaces it with the backup content.';
+
+  @override
+  String get helpFaqTitle => 'FAQs & Troubleshooting';
+
+  @override
+  String get helpFaqIntro =>
+      'Find fast answers to common questions, permissions, and troubleshooting tips.';
+
+  @override
+  String get helpSecGeneralFaq => 'General Questions';
+
+  @override
+  String get helpFaqWhyApp =>
+      'Why use SreerajP YouTube Shortcuts instead of browser bookmarks?';
+
+  @override
+  String get helpFaqWhyAppAns =>
+      'Browser bookmarks open in mobile browsers where playback is often limited. SreerajP YouTube Shortcuts launches directly into the native YouTube app with custom tags, colors, offline QR sharing, privacy lock, and zero tracking.';
+
+  @override
+  String get helpFaqInternet => 'Does this app connect to the internet?';
+
+  @override
+  String get helpFaqInternetAns =>
+      'No. The app does not request or possess the Android INTERNET permission. It runs entirely on your device with 100% offline privacy and zero telemetry.';
+
+  @override
+  String get helpSecTroubleshooting => 'Troubleshooting & Permissions';
+
+  @override
+  String get helpFaqLaunchError =>
+      'Why does tapping a shortcut say \'The YouTube app could not be opened\'?';
+
+  @override
+  String get helpFaqLaunchErrorAns =>
+      'Ensure the official YouTube app is installed, updated, and enabled in your Android system app settings. If YouTube is disabled or restricted, enable it in Android Settings → Apps → YouTube.';
+
+  @override
+  String get helpFaqCameraPermission =>
+      'Why does the QR Scanner request Camera permission?';
+
+  @override
+  String get helpFaqCameraPermissionAns =>
+      'Camera permission is used exclusively for scanning QR codes locally using on-device vision processing. Camera feeds never leave your device and camera access is only active while the scanner screen is open.';
+
+  @override
+  String get helpFaqForgotPin =>
+      'What should I do if I forget my Security PIN?';
+
+  @override
+  String get helpFaqForgotPinAns =>
+      'Because all cryptographic keys and hashes reside purely on-device with zero cloud backdoor, a forgotten PIN cannot be reset remotely. You can authenticate via Biometrics if enabled, or clear app storage in Android Settings.';
 }

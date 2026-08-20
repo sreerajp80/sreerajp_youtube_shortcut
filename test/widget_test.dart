@@ -70,7 +70,7 @@ void main() {
     );
   });
 
-  testWidgets('updates theme preference from Settings screen', (
+  testWidgets('updates theme preference from Appearance screen', (
     WidgetTester tester,
   ) async {
     final ShortcutStore store = _buildStore();
@@ -78,6 +78,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Visual Customization'), findsOneWidget);
 
     await tester.tap(find.text('Classic Dark'));
     await tester.pumpAndSettle();
@@ -90,6 +95,89 @@ void main() {
     expect(store.themePreference, AppThemePreference.amoled);
   });
 
+  testWidgets('opens Features through Settings screen', (
+    WidgetTester tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Features'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Features'), findsOneWidget);
+    expect(find.text('SreerajP YouTube Shortcuts Features'), findsOneWidget);
+    expect(find.text('QUICK-LAUNCH & PLAYBACK'), findsOneWidget);
+
+    final Finder orgHeader = find.text('ORGANIZATION & VISUAL STYLING');
+    await tester.scrollUntilVisible(
+      orgHeader,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(orgHeader, findsOneWidget);
+
+    final Finder qrHeader = find.text('AIR-GAPPED QR CODE SYSTEM');
+    await tester.scrollUntilVisible(
+      qrHeader,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(qrHeader, findsOneWidget);
+  });
+
+  testWidgets('opens Help hub and navigates to help screens', (
+    WidgetTester tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+
+    final Finder helpTile = find.text('Help & User Guides');
+    await tester.scrollUntilVisible(
+      helpTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(helpTile);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Help & User Guides'), findsOneWidget);
+    expect(find.text('SreerajP YouTube Shortcuts Help'), findsOneWidget);
+    expect(find.text('Creating & Managing Shortcuts'), findsOneWidget);
+
+    // Open Getting Started
+    await tester.tap(find.text('Creating & Managing Shortcuts'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ADDING SHORTCUTS'), findsOneWidget);
+    expect(find.text('How do I add a new shortcut?'), findsOneWidget);
+
+    // Go back to Help hub
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    // Open FAQs & Troubleshooting
+    final Finder faqTile = find.text('FAQs & Troubleshooting Guide');
+    await tester.scrollUntilVisible(
+      faqTile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(faqTile);
+    await tester.pumpAndSettle();
+
+    expect(find.text('FAQs & Troubleshooting'), findsOneWidget);
+    expect(find.text('GENERAL QUESTIONS'), findsOneWidget);
+  });
+
   testWidgets('opens About through the new Settings screen', (
     WidgetTester tester,
   ) async {
@@ -100,7 +188,7 @@ void main() {
 
     expect(find.text('Settings'), findsOneWidget);
 
-    final Finder aboutTile = find.widgetWithText(ListTile, 'About');
+    final Finder aboutTile = find.text('About');
     await tester.scrollUntilVisible(
       aboutTile,
       200,
@@ -123,7 +211,7 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    final Finder permissionsTile = find.widgetWithText(ListTile, 'Permissions');
+    final Finder permissionsTile = find.text('Permissions');
     await tester.scrollUntilVisible(
       permissionsTile,
       200,
@@ -147,7 +235,7 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    final Finder handlesTile = find.widgetWithText(ListTile, 'Channel handles');
+    final Finder handlesTile = find.text('Channel handles');
     await tester.scrollUntilVisible(
       handlesTile,
       200,
@@ -421,7 +509,7 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
-    final Finder backupTile = find.widgetWithText(ListTile, 'Backup & Restore');
+    final Finder backupTile = find.text('Backup & Restore');
     await tester.scrollUntilVisible(
       backupTile,
       200,

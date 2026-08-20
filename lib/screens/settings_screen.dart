@@ -1,186 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sreerajp_youtube_shortcut/core/errors/app_exception.dart';
 import 'package:sreerajp_youtube_shortcut/l10n/app_localizations.dart';
-import 'package:sreerajp_youtube_shortcut/l10n/error_messages.dart';
-import 'package:sreerajp_youtube_shortcut/l10n/model_labels.dart';
 import 'package:sreerajp_youtube_shortcut/state/privacy_lock_store.dart';
-import 'package:sreerajp_youtube_shortcut/models/shortcut_models.dart';
-import 'package:sreerajp_youtube_shortcut/state/shortcut_store.dart';
 import 'package:sreerajp_youtube_shortcut/screens/about_screen.dart';
+import 'package:sreerajp_youtube_shortcut/screens/appearance_screen.dart';
 import 'package:sreerajp_youtube_shortcut/screens/backup_restore_screen.dart';
+import 'package:sreerajp_youtube_shortcut/screens/features_screen.dart';
+import 'package:sreerajp_youtube_shortcut/screens/help/help_home_screen.dart';
 import 'package:sreerajp_youtube_shortcut/screens/permissions_screen.dart';
 import 'package:sreerajp_youtube_shortcut/screens/shortcut_behavior_screen.dart';
 
+/// Main settings hub for SreerajP YouTube Shortcuts.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final ShortcutStore store = context.watch<ShortcutStore>();
-    final AppThemePreference selectedPreference = store.themePreference;
     final AppLocalizations l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsScreenTitle)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                l10n.settingsIntro,
-                style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.settingsAppearanceSection,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    l10n.settingsThemeSelection,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: AppThemePreference.values.map((
-                      AppThemePreference pref,
-                    ) {
-                      final bool isSelected = pref == selectedPreference;
-                      final List<Color> swatches = _themeSwatchesFor(pref);
-
-                      return InkWell(
-                        onTap: () => _setThemePreference(context, pref),
-                        borderRadius: BorderRadius.circular(16),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? theme.colorScheme.primaryContainer.withValues(
-                                    alpha: 0.4,
-                                  )
-                                : theme.colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.outlineVariant,
-                              width: isSelected ? 1.8 : 1.0,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Row(
-                                children: swatches.map((Color c) {
-                                  return Container(
-                                    width: 14,
-                                    height: 14,
-                                    margin: const EdgeInsets.only(right: 3),
-                                    decoration: BoxDecoration(
-                                      color: c,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.black26,
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                pref.label(l10n),
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  color: isSelected
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              ),
-                              if (isSelected) ...<Widget>[
-                                const SizedBox(width: 6),
-                                Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 16,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    _themePreferenceDescription(l10n, selectedPreference),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _SettingsTile(
-            icon: Icons.info_outline_rounded,
-            title: l10n.settingsAboutTitle,
-            subtitle: l10n.settingsAboutSubtitle,
-            onTap: () => _openAbout(context),
+          _SettingsCard(
+            icon: Icons.palette_outlined,
+            title: l10n.settingsAppearanceTitle,
+            subtitle: l10n.settingsAppearanceSubtitle,
+            onTap: () => _push(context, const AppearanceScreen()),
           ),
           const SizedBox(height: 12),
-          _SettingsTile(
-            icon: Icons.verified_user_outlined,
-            title: l10n.settingsPermissionsTitle,
-            subtitle: l10n.settingsPermissionsSubtitle,
-            onTap: () => _openPermissions(context),
+          _SettingsCard(
+            icon: Icons.stars_outlined,
+            title: l10n.settingsFeaturesTitle,
+            subtitle: l10n.settingsFeaturesSubtitle,
+            onTap: () => _push(context, const FeaturesScreen()),
           ),
           const SizedBox(height: 12),
-          _SettingsTile(
+          _SettingsCard(
             icon: Icons.alternate_email_rounded,
             title: l10n.settingsHandlesTitle,
             subtitle: l10n.settingsHandlesSubtitle,
-            onTap: () => _openShortcutBehavior(context),
+            onTap: () => _push(context, const ShortcutBehaviorScreen()),
           ),
           const SizedBox(height: 12),
-          _SettingsTile(
+          _SettingsCard(
             icon: Icons.import_export_rounded,
             title: l10n.settingsBackupTitle,
             subtitle: l10n.settingsBackupSubtitle,
-            onTap: () => _openBackupRestore(context),
+            onTap: () => _push(context, const BackupRestoreScreen()),
           ),
-          const SizedBox(height: 18),
-          Text(
-            l10n.settingsPrivacySection,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 12),
+          _SettingsCard(
+            icon: Icons.shield_outlined,
+            title: l10n.settingsPermissionsTitle,
+            subtitle: l10n.settingsPermissionsSubtitle,
+            onTap: () => _push(context, const PermissionsScreen()),
+          ),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            icon: Icons.help_outline_rounded,
+            title: l10n.settingsHelpTitle,
+            subtitle: l10n.settingsHelpSubtitle,
+            onTap: () => _push(context, const HelpHomeScreen()),
+          ),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            icon: Icons.info_outline_rounded,
+            title: l10n.settingsAboutTitle,
+            subtitle: l10n.settingsAboutSubtitle,
+            onTap: () => _push(context, const AboutScreen()),
+          ),
+          const SizedBox(height: 22),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.settingsPrivacySection.toUpperCase(),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 10),
@@ -190,99 +102,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  String _themePreferenceDescription(
-    AppLocalizations l10n,
-    AppThemePreference preference,
-  ) {
-    switch (preference) {
-      case AppThemePreference.system:
-        return l10n.themeDescSystem;
-      case AppThemePreference.light:
-        return l10n.themeDescLight;
-      case AppThemePreference.dark:
-        return l10n.themeDescDark;
-      case AppThemePreference.amoled:
-        return l10n.themeDescAmoled;
-      case AppThemePreference.warmSepia:
-        return l10n.themeDescWarmSepia;
-      case AppThemePreference.forestDark:
-        return l10n.themeDescForestDark;
-      case AppThemePreference.cyberpunkNeon:
-        return l10n.themeDescCyberpunkNeon;
-    }
-  }
-
-  List<Color> _themeSwatchesFor(AppThemePreference preference) {
-    switch (preference) {
-      case AppThemePreference.system:
-        return const <Color>[Color(0xFF888888), Color(0xFFD73A23)];
-      case AppThemePreference.light:
-        return const <Color>[Color(0xFFFFF8F3), Color(0xFFD73A23)];
-      case AppThemePreference.dark:
-        return const <Color>[Color(0xFF0A0E10), Color(0xFF2DD4BF)];
-      case AppThemePreference.amoled:
-        return const <Color>[Color(0xFF000000), Color(0xFFFF3B30)];
-      case AppThemePreference.warmSepia:
-        return const <Color>[Color(0xFFFBF0D9), Color(0xFF8C4327)];
-      case AppThemePreference.forestDark:
-        return const <Color>[Color(0xFF0B1A15), Color(0xFF10B981)];
-      case AppThemePreference.cyberpunkNeon:
-        return const <Color>[Color(0xFF0A0915), Color(0xFF00E5FF)];
-    }
-  }
-
-  Future<void> _setThemePreference(
-    BuildContext context,
-    AppThemePreference preference,
-  ) async {
-    final AppLocalizations l10n = AppLocalizations.of(context);
-    try {
-      await context.read<ShortcutStore>().setThemePreference(preference);
-    } on ShortcutStorageException catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.localized(l10n))));
-    }
-  }
-
-  Future<void> _openAbout(BuildContext context) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => const AboutScreen(),
-      ),
-    );
-  }
-
-  Future<void> _openPermissions(BuildContext context) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => const PermissionsScreen(),
-      ),
-    );
-  }
-
-  Future<void> _openShortcutBehavior(BuildContext context) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => const ShortcutBehaviorScreen(),
-      ),
-    );
-  }
-
-  Future<void> _openBackupRestore(BuildContext context) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => const BackupRestoreScreen(),
-      ),
-    );
+  void _push(BuildContext context, Widget screen) {
+    Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => screen));
   }
 }
 
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -297,41 +125,59 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    final Color iconBackground = isDark
-        ? const Color(0xFF2DD4BF).withValues(alpha: 0.18)
-        : theme.colorScheme.secondaryContainer;
-    final Color iconColor = isDark
-        ? const Color(0xFF2DD4BF)
-        : theme.colorScheme.onSecondaryContainer;
-    final Color iconBorder = isDark
-        ? const Color(0xFF2DD4BF).withValues(alpha: 0.45)
-        : Colors.transparent;
+    final Color accent = theme.colorScheme.primary;
 
     return Card(
-      child: ListTile(
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: iconBackground,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: iconBorder),
-          ),
-          child: Icon(icon, color: iconColor),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-        ),
-        trailing: const Icon(Icons.chevron_right_rounded),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(icon, color: accent),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -342,26 +188,46 @@ class _PrivacySecurityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final PrivacyLockStore lockStore = context.watch<PrivacyLockStore>();
     final AppLocalizations l10n = AppLocalizations.of(context);
+    final ThemeData theme = Theme.of(context);
 
     return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: <Widget>[
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.pin),
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.pin, color: theme.colorScheme.primary),
+              ),
               title: Text(
                 lockStore.hasPinConfigured
                     ? l10n.pinChangeTitle
                     : l10n.pinSetTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               subtitle: Text(
                 lockStore.hasPinConfigured
                     ? l10n.pinConfiguredSubtitle
                     : l10n.pinNotConfiguredSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              trailing: TextButton(
+              trailing: FilledButton.tonal(
                 onPressed: () => _showPinSetupDialog(context),
                 child: Text(
                   lockStore.hasPinConfigured
@@ -370,21 +236,47 @@ class _PrivacySecurityCard extends StatelessWidget {
                 ),
               ),
             ),
-            const Divider(),
+            Divider(
+              height: 24,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(l10n.appLockTitle),
-              subtitle: Text(l10n.appLockSubtitle),
+              title: Text(
+                l10n.appLockTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                l10n.appLockSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               value: lockStore.appLockEnabled,
               onChanged: lockStore.hasPinConfigured
                   ? (bool enabled) => lockStore.setAppLockEnabled(enabled)
                   : null,
             ),
-            const Divider(),
+            Divider(
+              height: 24,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(l10n.privateLockTitle),
-              subtitle: Text(l10n.privateLockSubtitle),
+              title: Text(
+                l10n.privateLockTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                l10n.privateLockSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               value: lockStore.privateLockEnabled,
               onChanged: lockStore.hasPinConfigured
                   ? (bool enabled) => lockStore.setPrivateLockEnabled(enabled)

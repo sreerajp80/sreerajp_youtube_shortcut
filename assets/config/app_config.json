@@ -1,8 +1,8 @@
 {
   "appName": "SreerajP YouTube Shortcuts",
   "description": "A local Android utility for turning YouTube links into quick-launch shortcuts.",
-  "version": "1.5.1",
-  "build": "22",
+  "version": "1.5.2",
+  "build": "23",
   "details": {
     "Author": "SreerajP",
     "Email": "sreerajp@zohomail.in",
