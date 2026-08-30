@@ -201,6 +201,8 @@ void main() {
 
     expect(find.text('About'), findsOneWidget);
     expect(find.text('SreerajP YouTube Shortcuts'), findsOneWidget);
+    expect(find.text('Version'), findsOneWidget);
+    expect(find.text('Build Date'), findsOneWidget);
   });
 
   testWidgets('opens Permissions through the new Settings screen', (

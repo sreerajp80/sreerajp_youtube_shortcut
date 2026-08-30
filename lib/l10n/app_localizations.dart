@@ -112,6 +112,12 @@ abstract class AppLocalizations {
   /// **'Version'**
   String get aboutVersionLabel;
 
+  /// Row label on the About screen for the build date.
+  ///
+  /// In en, this message translates to:
+  /// **'Build Date'**
+  String get aboutBuildDateLabel;
+
   /// Heading of the notes card at the bottom of the About screen.
   ///
   /// In en, this message translates to:

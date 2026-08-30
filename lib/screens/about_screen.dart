@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sreerajp_youtube_shortcut/core/config/app_config.dart';
+import 'package:sreerajp_youtube_shortcut/core/constants/build_date.g.dart';
 import 'package:sreerajp_youtube_shortcut/l10n/app_localizations.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -54,6 +55,7 @@ class AboutScreen extends StatelessWidget {
             label: l10n.aboutVersionLabel,
             value: '${appConfig.version}+${appConfig.build}',
           ),
+          _InfoRow(label: l10n.aboutBuildDateLabel, value: kBuildDate),
           for (final MapEntry<String, String> entry
               in appConfig.details.entries)
             if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)

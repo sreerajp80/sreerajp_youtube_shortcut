@@ -18,6 +18,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutVersionLabel => 'Version';
 
   @override
+  String get aboutBuildDateLabel => 'Build Date';
+
+  @override
   String get aboutNotesTitle => 'Notes';
 
   @override
