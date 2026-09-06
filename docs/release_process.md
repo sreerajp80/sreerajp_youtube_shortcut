@@ -1,10 +1,9 @@
-# Release Process
+# Release Process — SreerajP YouTube Shortcuts
 
 Use this document for repositories that ship builds to QA, external testers, enterprise
 distribution, or public app stores.
 
-If the repository is not release-tracked yet, keep this file short and mark the current release
-scope clearly.
+**Read first:** [../CLAUDE.md](../CLAUDE.md) · [architecture.md](architecture.md) · [security.md](security.md) · [`docs/guidelines/release_process.md`](guidelines/release_process.md)
 
 ---
 
@@ -18,8 +17,8 @@ scope clearly.
 - Engineering standard profiles in force:
   - `Core Baseline`
 
-Current v1 release scope is Android-only distribution for developer testing and small internal
-validation. The app is single-environment and ships without build flavors.
+Current release scope is Android-only distribution for testing and release builds. The app supports
+`dev` and `prod` build flavors.
 
 ---
 
@@ -41,7 +40,7 @@ validation. The app is single-environment and ships without build flavors.
 - Build-number increment rule: Increment on every release artifact
 - Git tag format: `vX.Y.Z`
 
-If git tagging is introduced later, the tag must match the semantic version in `pubspec.yaml`.
+When tagging a release in git, the tag must match the semantic version in `pubspec.yaml`.
 
 ---
 
@@ -54,24 +53,24 @@ If git tagging is introduced later, the tag must match the semantic version in `
   - `flutter analyze`
   - `flutter test`
 
-Current note: the workspace was not git-tracked on `2026-04-03`. Initialize source control before
-the first externally shared release.
-
 ---
 
 ## 5. Environment And Flavor Matrix
 
 | Flavor | Mode | Signing | Purpose | Example Command |
 |--------|------|---------|---------|-----------------|
-| `dev` | `debug` | Automatic debug keystore | Local development on emulator or device | `flutter run --flavor dev --dart-define=FLUTTER_APP_FLAVOR=dev` |
-| `dev` | `profile` | Automatic debug keystore | Performance validation | `flutter run --profile --flavor dev --dart-define=FLUTTER_APP_FLAVOR=dev` |
-| `prod` | `debug` | Automatic debug keystore | Production config with debug tooling | `flutter run --flavor prod --dart-define=FLUTTER_APP_FLAVOR=prod` |
+| `dev` | `debug` | Automatic debug keystore | Local development on emulator or device | `flutter run --flavor dev` |
+| `dev` | `profile` | Automatic debug keystore | Performance validation | `flutter run --profile --flavor dev` |
+| `prod` | `debug` | Automatic debug keystore | Production config with debug tooling | `flutter run --flavor prod` |
 | `prod` | `release apk` | Release keystore required | Internal installable artifact | See section 9 |
 | `prod` | `release app bundle` | Release keystore required | Store-ready artifact | See section 9 |
 
 Debug builds (`*--debug`) do not require `android/key.properties`. The SDK debug keystore is
 applied automatically. `prod --release` is blocked by a Gradle guard if `key.properties` is
 absent — see `docs/guidelines/flutter_build_flavors_guide.md §Android Signing Configuration`.
+
+> Never pass `--dart-define=FLUTTER_APP_FLAVOR`. That name is owned by the framework and the
+> current Flutter SDK rejects the build outright. `--flavor prod` sets it for you.
 
 ---
 
@@ -84,7 +83,7 @@ release-blocking issue.
 
 ```bash
 --obfuscate
---split-debug-info=build/symbols/android-<version>/
+--split-debug-info=build/symbols/android-prod-<version>/
 ```
 
 `--obfuscate` renames Dart class and method names in the compiled binary to meaningless
@@ -92,7 +91,7 @@ identifiers. This serves two purposes:
 - **Security**: prevents trivial reverse engineering of application logic from the release binary.
 - **Size**: reduces binary size marginally.
 
-`--split-debug-info` extracts the debug symbol mapping to a separate directory. This is
+`--split-debug-info` extracts the debug symbol mapping to a separate directory outside the APK. This is
 mandatory when `--obfuscate` is used because the symbols are required to decode stack traces
 from crash reports or manual release diagnostics.
 
@@ -100,24 +99,21 @@ from crash reports or manual release diagnostics.
 - The symbols directory MUST be archived securely after every production release build.
 - Symbols MUST be retained for the lifetime of the released version.
 - Symbols MUST NOT be committed to source control.
-- Store them alongside the release artifact, for example `releases/v1.2.3/symbols/`.
+- Store them alongside the release artifact, for example `releases/v1.5.3/symbols/`.
 - Without the symbols, stack traces from that version are permanently unreadable.
 
 ### 6.2 ProGuard / R8 (Android)
 
-Android release builds run R8 code shrinking. Verify `proguard-rules.pro` is present and keeps:
+Android release builds run R8 code shrinking (`isMinifyEnabled = true`). Verify `proguard-rules.pro` is present and keeps:
 - Flutter engine classes: `io.flutter.**`
-- Any native plugin code that later proves to require reflection keep rules
-
-Expected v1 plugin set is small (`android_intent_plus`, `package_info_plus`,
-`shared_preferences`). No custom reflection-heavy Android SDK is planned.
+- Any native plugin code that requires reflection keep rules
 
 ### 6.3 App Size Analysis
 
 Run size analysis before every release to catch dependency bloat early:
 
 ```bash
-flutter build apk --release --analyze-size
+flutter build apk --flavor prod --release --analyze-size
 ```
 
 Record the output in the release evidence section. Compare against the previous release.
@@ -138,35 +134,54 @@ policy violation.
 Check via `aapt2`:
 
 ```bash
-aapt2 dump badging build/app/outputs/flutter-apk/app-release.apk | grep -i debuggable
+aapt2 dump badging build/app/outputs/apk/prod/release/app-arm64-v8a-prod-release.apk | grep -i debuggable
 ```
 
 Expected output: no `application-debuggable` line present.
 
-### 6.5 Manifest Review (Android)
+### 6.5 Network Security Configuration And Cleartext Traffic
 
-Verify the merged release manifest before every production release:
+Verify that cleartext HTTP traffic is disabled for production builds:
+- `android:usesCleartextTraffic="false"` is enforced in `AndroidManifest.xml`.
+- The app has no network access and declares no `INTERNET` permission in production.
 
-- `INTERNET` permission is absent
-- No unnecessary permissions are declared
-- `android:allowBackup="false"` is present
-- Only the launcher activity is exported
-- `usesCleartextTraffic` remains disabled or absent
+### 6.6 Pre-Release Asset And Secret Leak Audit
 
-Because the app is offline-only, any accidental network permission is release-blocking.
+While `--obfuscate` scrambles compiled Dart logic in `libapp.so`, **files in the APK's `assets/` and `res/` directories remain completely unencrypted**. Any party with access to the APK can inspect its contents with `unzip` or `tar`.
+
+Before releasing, audit the bundled assets in the APK:
+
+```bash
+# bash / zsh
+unzip -l build/app/outputs/apk/prod/release/app-arm64-v8a-prod-release.apk "assets/*"
+```
+
+```powershell
+# PowerShell (Windows)
+tar -tf build\app\outputs\apk\prod\release\app-arm64-v8a-prod-release.apk | Select-String "assets/"
+```
+
+**Audit checklist:**
+- [ ] No `.env`, secret credentials, or private keys are packaged in `assets/`.
+- [ ] Only declared runtime config (`assets/config/app_config.json`) is included.
+
+### 6.7 Exported Component Audit
+
+Inspect all declared activities, services, and broadcast receivers in the merged manifest:
+- Every component with an `<intent-filter>` must have an explicit `android:exported` attribute.
+- Components intended strictly for internal app usage MUST specify `android:exported="false"`.
+- `MainActivity` has `android:exported="true"` for launcher and `SEND` intent actions.
 
 ---
 
 ## 7. Signing And Secret Handling
 
-- Signing config location: Local keystore for development; secured release keystore for external
-  distribution
+- Signing config location: `android/key.properties` pointing to `android/<name>.jks`
 - Keystore or certificate ownership: Developer
 - Secret rotation process: Manual rotation as needed
 - Rules:
   - Signing material must not live in source control.
-  - Local signing helpers must not expose secrets in committed files.
-  - CI or local logs must not print signing secrets.
+  - `key.properties`, `*.jks`, and `*.keystore` must be git-ignored.
   - Keystore files MUST be backed up in at least two separate secure locations.
 
 ---
@@ -194,18 +209,21 @@ Complete these items before every release.
 
 - [ ] `--obfuscate` and `--split-debug-info` applied to all release builds.
 - [ ] Debug symbols archived securely for this version.
-- [ ] ProGuard / R8 configuration reviewed.
+- [ ] ProGuard / R8 configuration verified (`proguard-rules.pro`).
 - [ ] `android:debuggable=false` confirmed in the merged release manifest.
-- [ ] Manifest review completed: no `INTERNET`, no unnecessary permissions,
-      `android:allowBackup=false`.
+- [ ] `android:allowBackup=false` verified in the merged release manifest.
+- [ ] Cleartext traffic disabled (`usesCleartextTraffic=false`).
+- [ ] Pre-release asset audit passed — no secrets bundled in APK `assets/` (§6.6).
+- [ ] Manifest component export audit completed — only expected components exported (§6.7).
+- [ ] Manifest review completed: no `INTERNET` permission in release.
 - [ ] OWASP Mobile Top 10 checklist reviewed (see `docs/security.md`).
 - [ ] No user-entered YouTube URLs or shortcut names are logged in production code.
 
 ### Product And Documentation
 
 - [ ] Version in `pubspec.yaml` updated.
-- [ ] About-screen metadata updated or verified:
-      author, version, build number, build date, AI-used label.
+- [ ] About-screen metadata in `assets/config/app_config.json` updated to match `pubspec.yaml`.
+- [ ] Build metadata generated (`dart run tool/generate_app_version.dart` and `dart run tool/generate_build_date.dart`).
 - [ ] Supported YouTube URL formats documented.
 - [ ] Release notes updated.
 
@@ -224,59 +242,113 @@ Complete these items before every release.
 ## 9. Android Release Steps
 
 1. Verify the local SDK is Flutter `3.44.8` with `flutter --version`.
-2. If git is active, pull the intended release commit and verify the tree is clean.
-3. Confirm the version in `pubspec.yaml`.
-4. Set the release metadata value for the AI-used label (build date is auto-generated at build time).
+2. Confirm the git tree is clean and on the intended release commit.
+3. Confirm the version in `pubspec.yaml` and `assets/config/app_config.json`.
+4. Run pre-build metadata generation:
+   - `dart run tool/generate_app_version.dart`
+   - `dart run tool/generate_build_date.dart`
 5. Fetch dependencies: `flutter pub get`.
 6. Run format, analyze, and test checks.
 7. Build the release APK and AAB with all hardening flags.
 8. Run size analysis and record the result.
-9. Review the merged manifest for `android:debuggable=false`, no `INTERNET`, and
-   `android:allowBackup=false`.
-10. Install the artifact on a clean Android device or emulator that has the YouTube app.
-11. Validate the end-to-end flow:
+9. Verify `android:debuggable=false` and `android:allowBackup=false` in the merged manifest.
+10. Perform pre-release asset extraction audit (§6.6).
+11. Install the artifact on a clean Android device or emulator with YouTube.
+12. Validate the end-to-end flow:
     - add a shortcut from a standard watch URL
     - add a shortcut from a `youtu.be` short URL
-    - add a shortcut from a Shorts or playlist URL if supported in the build
+    - add a shortcut from Shorts, playlist, and channel URLs
     - tap each shortcut and confirm the YouTube app receives the launch
-12. Open the About screen and confirm author, version, build number, build date, and AI-used.
-13. Archive the built artifact, debug symbols, and validation notes.
-14. If git is active, tag the release: `git tag v<version>` and push it.
+13. Open the About screen and confirm author, version, build number, and build date.
+14. Archive the built artifact and debug symbols from `build/symbols/` to secure storage.
+15. Tag the release: `git tag v<version>` and push.
 
-### Android Build Commands
+### Android Build Commands & Examples
+
+#### Bash / macOS / Linux
 
 ```bash
+# 1. Pre-build checks & metadata generation
 flutter pub get
+dart run tool/generate_app_version.dart
+dart run tool/generate_build_date.dart
 dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 
+# 2. Extract version from pubspec.yaml
+VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2)
+
+# 3. Build Split APKs for direct distribution
 flutter build apk \
   --flavor prod \
   --release \
   --obfuscate \
-  --split-debug-info=build/symbols/android-<version>/ \
+  --split-debug-info=build/symbols/android-prod-$VERSION/ \
   --split-per-abi \
-  --tree-shake-icons \
-  --dart-define=FLUTTER_APP_FLAVOR=prod \
-  --dart-define=APP_AI_USED=<AI_LABEL>
+  --dart-define=APP_AI_USED="Anthropic Claude, Google Gemini"
 
+# 4. Build App Bundle for Google Play Store
 flutter build appbundle \
   --flavor prod \
   --release \
   --obfuscate \
-  --split-debug-info=build/symbols/android-<version>/ \
-  --tree-shake-icons \
-  --dart-define=FLUTTER_APP_FLAVOR=prod \
-  --dart-define=APP_AI_USED=<AI_LABEL>
+  --split-debug-info=build/symbols/android-prod-$VERSION/ \
+  --dart-define=APP_AI_USED="Anthropic Claude, Google Gemini"
 
+# 5. Size analysis
 flutter build apk --flavor prod --release --analyze-size
 ```
 
-If build metadata should also be configurable by build system, add:
+#### PowerShell (Windows)
+
+```powershell
+# 1. Pre-build checks & metadata generation
+flutter pub get
+dart run tool/generate_app_version.dart
+dart run tool/generate_build_date.dart
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test
+
+# 2. Extract version from pubspec.yaml
+$VERSION = (Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(' ')[1].Trim()
+
+# 3. Build Split APKs for direct distribution
+flutter build apk `
+  --flavor prod `
+  --release `
+  --obfuscate `
+  --split-debug-info="build/symbols/android-prod-$VERSION/" `
+  --split-per-abi `
+  --dart-define=APP_AI_USED="Anthropic Claude, Google Gemini"
+
+# 4. Build App Bundle for Google Play Store
+flutter build appbundle `
+  --flavor prod `
+  --release `
+  --obfuscate `
+  --split-debug-info="build/symbols/android-prod-$VERSION/" `
+  --dart-define=APP_AI_USED="Anthropic Claude, Google Gemini"
+
+# 5. Size analysis
+flutter build apk --flavor prod --release --analyze-size
+```
+
+#### Post-Build APK Verification Commands
 
 ```bash
---dart-define=APP_AUTHOR=<AUTHOR_LABEL>
+# Verify no debuggable flag and verify allowBackup=false
+aapt2 dump badging build/app/outputs/apk/prod/release/app-arm64-v8a-prod-release.apk | grep -i debuggable
+aapt2 dump xmltree build/app/outputs/apk/prod/release/app-arm64-v8a-prod-release.apk --file AndroidManifest.xml | grep -i allowBackup
+
+# Audit asset bundle for unencrypted secrets
+unzip -l build/app/outputs/apk/prod/release/app-arm64-v8a-prod-release.apk "assets/*"
+```
+
+```powershell
+# Windows PowerShell asset audit
+tar -tf build\app\outputs\apk\prod\release\app-arm64-v8a-prod-release.apk | Select-String "assets/"
 ```
 
 ---
@@ -337,5 +409,3 @@ Store links or references to release evidence here after each release.
 - [ ] Release tag created and pushed if git tracking is active.
 - [ ] Debug symbols confirmed in secure archive.
 - [ ] Follow-up tasks recorded.
-
-

@@ -87,11 +87,10 @@ codebase; it is used only for automated tests and is not part of the shipped app
 
 ### Error Types
 
-Most app errors are sealed exceptions under `lib/core/errors/app_exception.dart`
-(`ShortcutValidationException`, `ShortcutStorageException`, `YoutubeLaunchException`). Backup and
-restore errors are a structural exception: `ShortcutBackupException` (in `backup_service.dart`) is
-a separate exception type that does **not** extend the shared `AppException` hierarchy used by the
-other three.
+App domain errors are sealed exceptions under `lib/core/errors/app_exception.dart`
+(`ShortcutValidationException`, `ShortcutStorageException`, `ShortcutBackupException`, and
+`YoutubeLaunchException`). All four extend the shared sealed `AppException` hierarchy and carry
+stable `AppErrorCode` values mapped to localized UI strings in `lib/l10n/error_messages.dart`.
 
 ---
 

@@ -201,7 +201,7 @@ afterEvaluate {
                         "══════════════════════════════════════════════════════════\n" +
                         "  android/key.properties not found.                       \n" +
                         "  Create the file with your release keystore credentials. \n" +
-                        "  See docs/flutter_build_flavors_guide.md                 \n" +
+                        "  See docs/guidelines/flutter_build_flavors_guide.md          \n" +
                         "  Section: Android Signing Configuration                  \n" +
                         "══════════════════════════════════════════════════════════\n"
                     )

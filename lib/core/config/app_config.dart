@@ -21,13 +21,14 @@ class AppConfig {
     appName: 'SreerajP YouTube Shortcuts',
     description:
         'A local Android utility for turning YouTube links into quick-launch shortcuts.',
-    version: '1.3.15',
-    build: '1',
+    version: '1.5.3',
+    build: '24',
     details: {
       'Author': 'SreerajP',
+      'Email': 'sreerajp@zohomail.in',
       'License': 'All libraries used are open source.',
-      'AI used': 'Google Gemini',
-      'IDE used': 'Antigravity IDE',
+      'AI used': 'Anthropic Claude, Google Gemini',
+      'IDE used': 'Antigravity, Visual Studio',
     },
   );
 
